@@ -7,5 +7,10 @@ requires-python = ">=3.13"
 dependencies = [
     "flask>=3.1.1",
     "flask-pymongo>=3.0.1",
+    "ipykernel>=6.30.0",
+    "ipython>=9.4.0",
+    "jupyter>=1.1.1",
+    "lczero-bindings>=0.1.0",
     "python-chess>=1.999",
+    "python-dotenv>=1.1.1",
 ]
