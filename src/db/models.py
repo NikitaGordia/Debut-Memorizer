@@ -8,7 +8,7 @@ class Game(Base):
     __tablename__ = "games"
 
     id = Column(Integer, primary_key=True)
-    sat = Column(String)
+    uci = Column(String)
     pgn = Column(String)
 
     event = Column(String)

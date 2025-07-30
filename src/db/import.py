@@ -28,7 +28,7 @@ def parse_date_from_pgn(date_str):
 def process_game(game: chess.pgn.Game) -> Game:
     headers = game.headers
     return Game(
-        sat=get_uci_representation(game),
+        uci=get_uci_representation(game),
         pgn=get_pgn_moves(game),
         event=headers.get("Event"),
         site=headers.get("Site"),
