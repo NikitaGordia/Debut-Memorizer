@@ -6,8 +6,11 @@ from flask import Response
 import json
 import os
 from engine import ChessAnalysisPool, EngineConfig
-from utils import pgn2board
+from utils import pgn2board, pgn2uci, sample_move
 from dotenv import load_dotenv
+import chess
+from explorer import Explorer
+from judge import Judge
 
 load_dotenv()
 
@@ -21,6 +24,8 @@ pool = ChessAnalysisPool(
     book_path=os.environ.get("BOOK_PATH"),
     num_workers=2,
 )
+explorer = Explorer(os.environ.get("EXPLORER_CACHE_PATH"), num_workers=2)
+judge = Judge(pool)
 
 
 # root(index) route
@@ -35,18 +40,26 @@ def make_move():
     # extract FEN string from HTTP POST request body
     pgn = request.form.get("pgn")
     board = pgn2board(pgn)
+    uci = pgn2uci(pgn)
 
     # extract move time value
     move_time = request.form.get("move_time")
 
     # if move time is available
     move_limit = 0.1 if move_time == "instant" else int(move_time)
-    try:
-        moves = pool.submit_and_get(pgn, move_limit)
+
+    orientation = (
+        chess.WHITE if request.form.get("orientation") == "white" else chess.BLACK
+    )
+    players_turn = orientation == board.turn
+
+    if players_turn:
+        moves = pool.submit_and_get(uci, move_limit)
         if len(moves) == 0:
             raise Exception("No move found")
 
         move = moves[0]
+        print(f"🤖 Engine move: {move}")
         board.push(move)
         return {
             "fen": board.fen(),
@@ -56,12 +69,40 @@ def make_move():
             "pv": "",
             "nodes": "",
             "time": move_limit,
+            "judge": {
+                "evaluated": False,
+                "correct": False,
+            },
         }
+    else:
+        moves_dst = explorer.submit_and_get(uci)
+        if len(moves_dst) == 0:
+            raise Exception("Implement handling end of opening")
+        move = sample_move(moves_dst)
+        print(f"🧭 Explorer move: {move}")
 
-    except Exception as e:
-        raise e
-        print(f"Error: {e}")
-        return {"fen": board.fen(), "score": "#+1"}
+        correct = None
+        if board.fullmove_number > 2:
+            correct = judge.last_move_is_correct(uci, move_limit)
+            print(f"⚖️ Correct move: {correct}")
+
+        pool.submit_job(f"{uci} {move}", move_limit)
+
+        board.push(chess.Move.from_uci(move))
+
+        return {
+            "fen": board.fen(),
+            "best_move": str(move),
+            "score": "unknown",
+            "depth": 0,
+            "pv": "",
+            "nodes": "",
+            "time": move_limit,
+            "judge": {
+                "evaluated": correct is not None,
+                "correct": correct,
+            },
+        }
 
 
 @app.route("/analytics")

@@ -181,7 +181,8 @@
     $.post('/make_move',{
         'pgn': game.pgn(),
         'fixed_depth': $('#fixed_depth option:selected').val(),
-        'move_time': $('#move_time option:selected').val() 
+        'move_time': $('#move_time option:selected').val(),
+        'orientation': board.orientation()
       }, function(data) {
         // load fen into the current board state
         game.move(data.best_move, { sloppy: true })
@@ -350,7 +351,7 @@
     if (move === null) return 'snapback'
 
     // make computer move
-    make_move();
+    // make_move();
     
     // update game status
     updateStatus();

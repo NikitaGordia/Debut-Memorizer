@@ -1,9 +1,8 @@
 import chess
 import chess.engine
-import uuid
 from concurrent.futures import ThreadPoolExecutor, Future
-from typing import Dict, Optional, List
-from utils import pgn2board
+from typing import Dict, List
+from utils import uci2board
 
 
 class Book:
@@ -12,30 +11,19 @@ class Book:
         self.book = self._read_book(book_path)
 
     def _read_book(self, path):
-        board = chess.Board()
         with open(path) as f:
             book_raw = f.read()
-            games = [
-                [chess.Move.from_uci(move) for move in game.split()]
-                for game in book_raw.split("\n")[0:-1]
-            ]
-            pgn_games = [board.variation_san(game) for game in games]
+            uci_games = book_raw.split("\n")[0:-1]
 
-        return pgn_games
+        return uci_games
 
-    def find(self, pgn):
+    def find(self, uci: str) -> set[str]:
         moves = []
-        board = pgn2board(pgn)
         for game in self.book:
-            if game.startswith(pgn) and len(game) > len(pgn):
-                if len(pgn) == 0:
-                    move = game.split()[1]
-                else:
-                    white_to_move = game[len(pgn) + 1].isdigit()
-                    move = game[len(pgn) :].split()[1 if white_to_move else 0]
-                print(f"📖 HERE: {move}", game)
-                moves.append(board.parse_san(move))
-        return moves
+            if game.startswith(uci) and len(game) > len(uci):
+                move = game[len(uci) :].split()[0]
+                moves.append(move)
+        return set(moves)
 
 
 class EngineConfig:
@@ -65,43 +53,45 @@ class ChessAnalysisPool:
         engine.configure({"WeightsFile": self.engine_config.weights})
         return engine
 
-    def _run_analysis(self, pgn: str, time_limit: float) -> List[chess.Move]:
-        book_moves = self.book.find(pgn)
+    def _run_analysis(self, uci: str, time_limit: float) -> List[chess.Move]:
+        book_moves = self.book.find(uci)
         if book_moves:
             print(f"📖 Book moves: {book_moves}")
             return book_moves
 
         engine = self._setup_engine()
         try:
-            result = engine.play(pgn2board(pgn), chess.engine.Limit(time=time_limit))
+            result = engine.play(uci2board(uci), chess.engine.Limit(time=time_limit))
             move = result.move
-            print("🤖 Engine move: {move}")
-            return [move]
+            print(f"🤖 Engine move: {move}")
+            return set(
+                [
+                    str(move),
+                ]
+            )
         finally:
             engine.quit()
 
-    def submit_job(self, pgn: str, time_limit: int) -> str:
-        future = self.executor.submit(self._run_analysis, pgn, time_limit)
+    def submit_job(self, uci: str, time_limit: int) -> str:
+        if uci in self._futures:
+            print(f"Job for {uci} already submitted. Reusing job.")
+            return uci
+        print(f"Job {uci} is submitted.")
+        future = self.executor.submit(self._run_analysis, uci, time_limit)
 
-        job_id = str(uuid.uuid4())
-        self._futures[job_id] = future
+        self._futures[uci] = future
 
-        print(f"Job ...{job_id[:8]} submitted for analysis.")
-        return job_id
-
-    def get_result(self, job_id: str) -> List[chess.Move]:
-        future = self._futures.pop(job_id, None)
+    def get_result(self, uci: str) -> List[chess.Move]:
+        future = self._futures.pop(uci, None)
         if not future:
-            raise KeyError(f"Job ID '{job_id}' not found or already retrieved.")
+            raise KeyError(f"Job ID '{uci}' not found or already retrieved.")
 
-        print(f"Waiting for result of job {job_id[:8]}...")
         result = future.result()
-        print(f"✅ Result for job {job_id[:8]}... received: {result[0]}")
         return result
 
-    def submit_and_get(self, pgn: str, time_limit: int) -> List[chess.Move]:
-        job_id = self.submit_job(pgn, time_limit)
-        return self.get_result(job_id)
+    def submit_and_get(self, uci: str, time_limit: int) -> List[chess.Move]:
+        self.submit_job(uci, time_limit)
+        return self.get_result(uci)
 
     def shutdown(self):
         print("Shutting down the thread pool. Waiting for active jobs to finish...")

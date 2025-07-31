@@ -1,5 +1,5 @@
 import argparse
-from . import db
+import db
 import diskcache as dc
 import tqdm
 from concurrent.futures import ThreadPoolExecutor
@@ -23,6 +23,7 @@ class Explorer:
     def _explore(self, uci):
         if uci in self.cache:
             return self.cache[uci]
+        print(f"Cache miss: {uci}")
         moves = db.get_next_move_distribution(uci)
         self.cache[uci] = moves
         return moves
@@ -52,6 +53,9 @@ class Explorer:
             return
 
         for move, count in dst.items():
+            print(
+                f"Move: {move}, Count: {count}, Total: {total}, Ratio: {count / total}, Depth: {depth}, threshold: {self.stop_threshold}"
+            )
             if count / total < self.stop_threshold:
                 continue
             new_uci = f"{uci} {move}" if uci else move

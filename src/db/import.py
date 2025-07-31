@@ -10,7 +10,7 @@ from datetime import datetime
 
 from .models import Game
 from . import add_games
-from src.utils import get_uci_representation, get_pgn_moves
+from src.utils import game2uci, game2pgn
 
 DB_BATCH_SIZE = 1_000_000
 CHUNK_SIZE = 10_000_000
@@ -28,8 +28,8 @@ def parse_date_from_pgn(date_str):
 def process_game(game: chess.pgn.Game) -> Game:
     headers = game.headers
     return Game(
-        uci=get_uci_representation(game),
-        pgn=get_pgn_moves(game),
+        uci=game2uci(game),
+        pgn=game2pgn(game),
         event=headers.get("Event"),
         site=headers.get("Site"),
         date=parse_date_from_pgn(headers.get("Date")),
