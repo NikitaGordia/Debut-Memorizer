@@ -2,8 +2,6 @@ from flask import Flask
 from flask import render_template
 from flask import request
 from flask import jsonify
-from flask import Response
-import json
 import os
 from engine import ChessAnalysisPool
 from utils import pgn2board, pgn2uci, sample_move, uci2board
@@ -52,11 +50,6 @@ def surrender(uci: str, engine_type: str, move_limit: int) -> dict:
     return {
         "fen": board.fen(),
         "best_move": str(move),
-        "score": "unknown",
-        "depth": 0,
-        "pv": "",
-        "nodes": "",
-        "time": move_limit,
         "continue": False,
     }
 
@@ -83,11 +76,6 @@ def continue_game(uci: str, engine_type: str, move_limit: int) -> dict:
     return {
         "fen": board.fen(),
         "best_move": str(move),
-        "score": "unknown",
-        "depth": 0,
-        "pv": "",
-        "nodes": "",
-        "time": move_limit,
         "continue": correct_move,
     }
 
@@ -122,56 +110,6 @@ def make_move():
         return surrender(uci, engine_type, move_limit)
     else:
         return continue_game(uci, engine_type, move_limit)
-
-
-@app.route("/analytics")
-def analytics():
-    return render_template("stats.html")
-
-
-@app.route("/analytics/api/post", methods=["POST"])
-def post():
-    response = Response("")
-    response.headers["Access-Control-Allow-Origin"] = "*"
-
-    stats = {
-        "Date": request.form.get("date"),
-        "Url": request.form.get("url"),
-        "Agent": request.headers.get("User-Agent"),
-    }
-
-    if request.headers.getlist("X-Forwarded-For"):
-        stats["Ip"] = request.headers.getlist("X-Forwarded-For")[0]
-    else:
-        stats["Ip"] = request.remote_addr
-
-    if request.headers.get("Origin"):
-        stats["Origin"] = request.headers.get("Origin")
-    else:
-        stats["Origin"] = "N/A"
-
-    if request.headers.get("Referer"):
-        stats["Referer"] = request.headers.get("Referer")
-    else:
-        stats["Referer"] = "N/A"
-
-    with open(os.environ.get("STATS_FILE"), "a") as f:
-        f.write(json.dumps(stats, indent=2) + "\n\n")
-    return response
-
-
-@app.route("/analytics/api/get")
-def get():
-    stats = []
-
-    with open(os.environ.get("STATS_FILE")) as f:
-        for entry in f.read().split("\n\n"):
-            try:
-                stats.append(json.loads(entry))
-            except:
-                pass
-
-    return jsonify({"data": stats})
 
 
 # main driver

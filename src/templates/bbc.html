@@ -2,31 +2,18 @@
   <head>
     <title>BBC chess engine</title>
     
-    <!-- favicon -->
     <link rel="shortcut icon" href="/static/favicon.ico">
     
-    <!-- JQuery -->
     <script src="https://code.jquery.com/jquery-3.5.1.min.js"></script>
     
-    <!-- Bootstrap -->
     <link rel="stylesheet" href="https://stackpath.bootstrapcdn.com/bootstrap/4.5.2/css/bootstrap.min.css">
     <script src="https://stackpath.bootstrapcdn.com/bootstrap/4.5.2/js/bootstrap.min.js"></script>
     <script src="https://stackpath.bootstrapcdn.com/bootstrap/4.5.2/js/bootstrap.bundle.min.js"></script>
     
-    <!-- chessjs -->
     <script src="/static/js/chess.js"></script>
     
-    <!-- chessboardjs -->
     <link rel="stylesheet" href="/static/css/chessboard-1.0.0.min.css">
     <script src="/static/js/chessboard-1.0.0.min.js"></script>
-    
-    <!-- Analytics -->
-    <script type="text/javascript">
-      $.post('https://maksimkorzh.pythonanywhere.com/analytics/api/post', {
-        date: new Date,
-        url: window.location.href
-      });
-    </script>
     
   </head>
   <body>
@@ -35,17 +22,13 @@
         <div class="col">
           <div class="card mt-2">
             <div class="card-body">
-              <div class="row">
+              <div class="row justify-content-center">
                 <div class="col-5">
-                  <!-- chess board view -->
                   <div id="chess_board" class="mx-auto mb-2" style="width: 400px;"></div>
               
-                  <!-- game controls -->
                   <div class="row mx-auto mb-2" style="width: 400px;">
-                    <!-- game status -->
                     <strong class="mx-auto mb-2"><div id="status"></div></strong>
 
-                    <!-- FEN -->
                     <div class="input-group mb-3">
                       <input id="fen" type="text" class="form-control">
                       <div class="input-group-append">
@@ -53,7 +36,6 @@
                       </div>
                     </div>
                     
-                    <!-- strength controls -->
                     <div class="input-group mb-3">
                       <select id="move_time" class="form-control mr-2">
                         <option value="0">N/A</option>
@@ -86,7 +68,6 @@
                       </select>
                     </div>
                     
-                    <!-- -buttons -->
                     <div class="btn-group">
                       <button id="new_game" class="btn btn-outline-secondary">New game</button>
                       <button id="make_move" class="btn btn-outline-secondary">Make move</button>
@@ -96,68 +77,9 @@
                     
                   </div>
                 </div>
-                <div class="col ml-4">
-                  <!-- engine info -->
-                  <div class="row mx-auto">    
-                    <div class="col"><img src="/static/LOGO.png"></img></div>
-                    <div class="col-8">  
-                      <p class="lead font-weight-normal mt-3">
-                      <strong>BBC 1.4 + Stockfish NNUE (FINAL RELEASE)</strong>
-                      <br>
-                      UCI chess engine by Code Monkey King
-                      </p>
-                      <small>Logo by Brendan J. Norman</small>
-                    </div>
-                  </div>
-                  
-                  <hr>
-                  
-                  <!-- info -->
-                  <div class="row mx-auto mt-2">
-                    <small class="mx-auto">
-                      NOTE: Online version has strength limitations due to poor performace of free hosting.<br>
-                      Please make sure to <a href="https://github.com/maksimKorzh/bbc/releases/tag/1.4">download UCI version of BBC chess engine</a> to get the most of it!
-                    </small>
-                  </div>
-                  
-                  <!-- game info -->
-                  <table class="table text-center mt-4">
-                    <thead>
-                      <tr>
-                        <th>Score</th>
-                        <th>Depth</th>
-                        <th>Time</th>
-                        <th>Nodes</th>
-                        <th>Knps</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      <tr>
-                        <td><strong id="score" class="text-danger"></strong></td>
-                        <td id="depth"></td>
-                        <td id="time"></td>
-                        <td id="nodes"></td>
-                        <td id="knps"></td>
-                      <tr>
-                    </tbody>
-                  </table>
-                  
-                  <hr>
-                  
-                  <!-- PGN output -->
-                  <div class="mt-2"><strong>PGN:</strong></div>
-                  <div id="pgn"></div>
-                  
-                  <!-- download button -->
-                  <button id="download_button" class="btn btn-success mt-2">Download</button>
-                  
-                  <!-- download link -->
-                  <a id="download_link" href="" download="" hidden>your pgn</a>
-                </div>
               </div>
             </div>
             <div class="card-footer">
-              <!-- links -->
               <div class="input-group mt-2 mb-3">
                 <a href="https://github.com/maksimKorzh/bbc" class="btn btn-primary mx-auto ml-2">BBC source code!</a>
                 <a href="mailto:freesoft.for.people@gmail.com" class="text-dark nav-link mx-auto"><strong class="ml-2 mt-1">freesoft.for.people@gmail.com</strong></a>
@@ -189,13 +111,6 @@
         
         // update board position
         board.position(game.fen());
-
-        // update game info
-        $score.text(data.score);
-        $depth.text(data.depth);
-        $time.text(data.time);
-        $nodes.text(data.nodes);
-        $knps.text(Math.round(Number($nodes.text()) / parseFloat($time.text())) / 1000)
 
         // update game status
         updateStatus();
