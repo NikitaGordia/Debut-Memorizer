@@ -22,6 +22,8 @@ def game2pgn(game: chess.pgn.Game) -> str:
 
 
 def game2uci(game: chess.pgn.Game) -> str:
+    if game is None:
+        return ""
     uci_moves = [move.uci() for move in game.mainline_moves()]
     return " ".join(uci_moves)
 
@@ -45,9 +47,10 @@ def sample_move(distribution: dict[str, int], threshold: float = 0.05) -> str | 
 
     dst_sum = sum(distribution.values())
     filtered_dst = {k: v for k, v in distribution.items() if v / dst_sum >= threshold}
-    return random.choices(
+    move = random.choices(
         list(filtered_dst.keys()), weights=list(filtered_dst.values()), k=1
     )[0]
+    return move, distribution[move]
 
 
 def previous_move_and_uci(uci_moves: str) -> Tuple[str, str]:

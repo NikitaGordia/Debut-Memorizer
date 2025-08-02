@@ -3,6 +3,11 @@ import chess.engine
 from concurrent.futures import ThreadPoolExecutor, Future
 from typing import Dict, List
 from utils import uci2board
+from abc import ABC
+from dotenv import load_dotenv
+import os
+
+load_dotenv()
 
 
 class Book:
@@ -26,21 +31,48 @@ class Book:
         return set(moves)
 
 
-class EngineConfig:
-    def __init__(self, executable: str, weights: str):
-        self.executable = executable
-        self.weights = weights
+class Engine(ABC):
+    def __init__(self, path: str):
+        self._engine = chess.engine.SimpleEngine.popen_uci(path)
+
+    def analyze(self, uci: str, time_limit: float) -> str:
+        result = self._engine.play(uci2board(uci), chess.engine.Limit(time=time_limit))
+        move = result.move
+        return str(move)
+
+    def __enter__(self):
+        return self
+
+    def __exit__(self, exc_type, exc_val, exc_tb):
+        self._engine.quit()
+
+
+class LcZeroEngine(Engine):
+    def __init__(self):
+        super().__init__(os.environ.get("LCZERO_PATH"))
+        self._engine.configure({"WeightsFile": os.environ.get("LCZERO_WEIGHTS")})
+
+
+class StockfishEngine(Engine):
+    def __init__(self):
+        super().__init__(os.environ.get("STOCKFISH_PATH"))
+
+
+def make_engine(engine_type: str) -> Engine:
+    if engine_type == "lczero":
+        return LcZeroEngine()
+    elif engine_type == "stockfish":
+        return StockfishEngine()
+    else:
+        raise ValueError(f"Unknown engine type: {engine_type}")
 
 
 class ChessAnalysisPool:
-    def __init__(
-        self, engine_config: EngineConfig, book_path: str, num_workers: int = 2
-    ):
+    def __init__(self, book_path: str, num_workers: int = 2):
         if num_workers <= 0:
             raise ValueError("Number of workers must be a positive integer.")
 
         self.book = Book(book_path)
-        self.engine_config: EngineConfig = engine_config
         self.executor = ThreadPoolExecutor(
             max_workers=num_workers, thread_name_prefix="ChessWorker"
         )
@@ -48,36 +80,29 @@ class ChessAnalysisPool:
         self._futures: Dict[str, Future] = {}
         print(f"♟️ Chess Analysis Pool initialized with {num_workers} workers.")
 
-    def _setup_engine(self):
-        engine = chess.engine.SimpleEngine.popen_uci(self.engine_config.executable)
-        engine.configure({"WeightsFile": self.engine_config.weights})
-        return engine
-
-    def _run_analysis(self, uci: str, time_limit: float) -> List[chess.Move]:
+    def _run_analysis(
+        self, uci: str, engine_type: str, time_limit: float
+    ) -> List[chess.Move]:
         book_moves = self.book.find(uci)
         if book_moves:
             print(f"📖 Book moves: {book_moves}")
             return book_moves
 
-        engine = self._setup_engine()
-        try:
-            result = engine.play(uci2board(uci), chess.engine.Limit(time=time_limit))
-            move = result.move
+        with make_engine(engine_type) as engine:
+            move = engine.analyze(uci, time_limit)
             print(f"🤖 Engine move: {move}")
             return set(
                 [
                     str(move),
                 ]
             )
-        finally:
-            engine.quit()
 
-    def submit_job(self, uci: str, time_limit: int) -> str:
+    def submit_job(self, uci: str, engine_type: str, time_limit: int) -> str:
         if uci in self._futures:
             print(f"Job for {uci} already submitted. Reusing job.")
             return uci
         print(f"Job {uci} is submitted.")
-        future = self.executor.submit(self._run_analysis, uci, time_limit)
+        future = self.executor.submit(self._run_analysis, uci, engine_type, time_limit)
 
         self._futures[uci] = future
 
@@ -89,8 +114,10 @@ class ChessAnalysisPool:
         result = future.result()
         return result
 
-    def submit_and_get(self, uci: str, time_limit: int) -> List[chess.Move]:
-        self.submit_job(uci, time_limit)
+    def submit_and_get(
+        self, uci: str, engine_type: str, time_limit: int
+    ) -> List[chess.Move]:
+        self.submit_job(uci, engine_type=engine_type, time_limit=time_limit)
         return self.get_result(uci)
 
     def shutdown(self):
