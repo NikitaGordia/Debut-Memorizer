@@ -10,10 +10,7 @@ load_dotenv()
 
 
 class Explorer:
-    def __init__(
-        self, cache_path: str, num_workers: int = 2, stop_threshold: float = 0.05
-    ):
-        self.stop_threshold = stop_threshold
+    def __init__(self, cache_path: str, num_workers: int = 2):
         self.executor = ThreadPoolExecutor(
             max_workers=num_workers, thread_name_prefix="ExprorerWorker"
         )
@@ -23,7 +20,6 @@ class Explorer:
     def _explore(self, uci):
         if uci in self.cache:
             return self.cache[uci]
-        print(f"Cache miss: {uci}")
         moves = db.get_next_move_distribution(uci)
         self.cache[uci] = moves
         return moves
@@ -42,7 +38,14 @@ class Explorer:
         self.submit_job(uci)
         return self.get_result(uci)
 
-    def _recursive_explore(self, uci: str, depth: int, max_depth: int, pbar: tqdm.tqdm):
+    def _recursive_explore(
+        self,
+        uci: str,
+        depth: int,
+        max_depth: int,
+        stop_threshold: float,
+        pbar: tqdm.tqdm,
+    ):
         dst = self.get_result(uci)
         pbar.update(1)
         total = sum(dst.values())
@@ -53,20 +56,17 @@ class Explorer:
             return
 
         for move, count in dst.items():
-            print(
-                f"Move: {move}, Count: {count}, Total: {total}, Ratio: {count / total}, Depth: {depth}, threshold: {self.stop_threshold}"
-            )
-            if count / total < self.stop_threshold:
+            if count / total < stop_threshold:
                 continue
             new_uci = f"{uci} {move}" if uci else move
             self.submit_job(new_uci)
-            self._recursive_explore(new_uci, depth + 1, max_depth, pbar)
+            self._recursive_explore(new_uci, depth + 1, max_depth, stop_threshold, pbar)
 
-    def explore(self, uci: str, depth: int) -> dict[str, int]:
+    def explore(self, uci: str, depth: int, stop_threshold: float) -> dict[str, int]:
         self.submit_job(uci)
 
         pbar = tqdm.tqdm(desc="🧭 Exploring", unit="positions")
-        self._recursive_explore(uci, 0, depth, pbar)
+        self._recursive_explore(uci, 0, depth, stop_threshold, pbar)
         pbar.close()
 
     def shutdown(self):
@@ -75,9 +75,9 @@ class Explorer:
         print("All workers have been shut down.")
 
 
-def explore(depth: int, num_workers: int) -> dict[str, int]:
+def explore(depth: int, num_workers: int, stop_threshold: float) -> dict[str, int]:
     explorer = Explorer(os.environ.get("EXPLORER_CACHE_PATH"), num_workers)
-    explorer.explore("", depth)
+    explorer.explore("", depth, stop_threshold)
     explorer.shutdown()
 
 
@@ -98,6 +98,12 @@ if __name__ == "__main__":
         default=3,
         help="Depth of the exploration.",
     )
+    parser.add_argument(
+        "--stop-threshold",
+        type=float,
+        default=0.05,
+        help="Minimum ratio of occurances to continue exploration.",
+    )
     args = parser.parse_args()
 
-    explore(args.depth, args.num_workers)
+    explore(args.depth, args.num_workers, args.stop_threshold)

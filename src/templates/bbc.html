@@ -1,89 +1,458 @@
 <html>
   <head>
-    <title>BBC chess engine</title>
-    
+    <title>Chess Openings Trainer</title>
+
     <link rel="shortcut icon" href="/static/favicon.ico">
-    
+
     <script src="https://code.jquery.com/jquery-3.5.1.min.js"></script>
-    
+
     <link rel="stylesheet" href="https://stackpath.bootstrapcdn.com/bootstrap/4.5.2/css/bootstrap.min.css">
     <script src="https://stackpath.bootstrapcdn.com/bootstrap/4.5.2/js/bootstrap.min.js"></script>
     <script src="https://stackpath.bootstrapcdn.com/bootstrap/4.5.2/js/bootstrap.bundle.min.js"></script>
-    
+
     <script src="/static/js/chess.js"></script>
-    
+
     <link rel="stylesheet" href="/static/css/chessboard-1.0.0.min.css">
     <script src="/static/js/chessboard-1.0.0.min.js"></script>
-    
+
+    <style>
+      .trainer-controls {
+        background-color: #f8f9fa;
+        border-radius: 8px;
+        padding: 20px;
+        margin-bottom: 20px;
+      }
+      .start-training-btn {
+        font-size: 1.2rem;
+        font-weight: bold;
+        padding: 15px 30px;
+        border-radius: 8px;
+        width: 100%;
+        margin-top: 20px;
+      }
+      .orientation-toggle {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+      }
+      .control-group {
+        margin-bottom: 15px;
+      }
+      .control-label {
+        font-weight: 600;
+        margin-bottom: 5px;
+        color: #495057;
+      }
+
+      /* Timer freeze animation */
+      .timer-frozen {
+        animation: pulse-freeze 1.5s infinite;
+        border: 2px solid #ffc107;
+        border-radius: 8px;
+        padding: 5px;
+        background-color: #fff3cd;
+      }
+
+      @keyframes pulse-freeze {
+        0% { opacity: 1; }
+        50% { opacity: 0.6; }
+        100% { opacity: 1; }
+      }
+
+      .timer-unfreezing {
+        animation: unfreeze-flash 0.8s ease-out;
+      }
+
+      @keyframes unfreeze-flash {
+        0% { background-color: #d4edda; transform: scale(1.05); }
+        50% { background-color: #c3e6cb; transform: scale(1.1); }
+        100% { background-color: transparent; transform: scale(1); }
+      }
+
+      /* Progress indicator and board blocking */
+      .progress-overlay {
+        position: absolute;
+        top: 0;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        background-color: rgba(0, 0, 0, 0.3);
+        display: none;
+        z-index: 1000;
+        border-radius: 8px;
+      }
+
+      .progress-content {
+        position: absolute;
+        top: 50%;
+        left: 50%;
+        transform: translate(-50%, -50%);
+        text-align: center;
+        color: white;
+        width: 80%;
+      }
+
+      .progress-text {
+        font-size: 1.1rem;
+        font-weight: bold;
+        margin-bottom: 15px;
+      }
+
+      .progress-bar-container {
+        background-color: rgba(255, 255, 255, 0.3);
+        border-radius: 10px;
+        height: 20px;
+        overflow: hidden;
+        margin-bottom: 10px;
+      }
+
+      .progress-bar-fill {
+        background: linear-gradient(90deg, #28a745, #20c997);
+        height: 100%;
+        width: 0%;
+        transition: width 0.1s ease-out;
+        border-radius: 10px;
+      }
+
+      .progress-time {
+        font-size: 0.9rem;
+        opacity: 0.9;
+      }
+
+      .board-container {
+        position: relative;
+      }
+
+      .board-disabled {
+        pointer-events: none;
+        opacity: 0.6;
+      }
+
+      /* Mobile responsiveness - Force stacking on small screens */
+      @media (max-width: 900px) {
+        /* Force the row to be a flex column on mobile */
+        .card-body .row {
+          flex-direction: column !important;
+        }
+
+        /* Force columns to stack vertically and take full width */
+        .card-body .row .chess-board-column,
+        .card-body .row .controls-column {
+          flex: 0 0 100% !important;
+          max-width: 100% !important;
+          width: 100% !important;
+        }
+
+        /* Stack chess board and controls vertically on mobile */
+        .chess-board-column {
+          order: 1;
+          margin-bottom: 20px;
+        }
+
+        .controls-column {
+          order: 2;
+        }
+
+        /* Adjust chess board size for mobile */
+        #chess_board {
+          width: 100% !important;
+          max-width: 350px !important;
+        }
+
+        /* Make trainer controls more compact on mobile */
+        .trainer-controls {
+          padding: 15px;
+          margin-bottom: 15px;
+        }
+
+        .start-training-btn {
+          padding: 12px 20px;
+          font-size: 1.1rem;
+        }
+
+        /* Adjust control groups spacing */
+        .control-group {
+          margin-bottom: 12px;
+        }
+
+        /* Make orientation toggle more mobile-friendly */
+        .orientation-toggle {
+          flex-direction: column;
+          gap: 8px;
+          align-items: stretch;
+        }
+
+        .orientation-toggle .btn-group {
+          width: 100%;
+        }
+
+        .orientation-toggle .btn {
+          flex: 1;
+        }
+
+        /* Adjust training session stats for mobile */
+        .row.mb-3 .col-6 {
+          margin-bottom: 10px;
+        }
+
+        /* Make progress overlay text smaller on mobile */
+        .progress-text {
+          font-size: 1rem;
+        }
+
+        .progress-time {
+          font-size: 0.8rem;
+        }
+
+        .progress-content {
+          width: 90%;
+        }
+      }
+
+      /* Extra small devices (phones in portrait) */
+      @media (max-width: 575.98px) {
+        .container-fluid {
+          padding-left: 10px;
+          padding-right: 10px;
+        }
+
+        .card {
+          margin-top: 10px;
+        }
+
+        .card-body {
+          padding: 15px;
+        }
+
+        #chess_board {
+          max-width: 300px !important;
+        }
+
+        .trainer-controls {
+          padding: 12px;
+        }
+
+        .start-training-btn {
+          padding: 10px 15px;
+          font-size: 1rem;
+        }
+
+        /* Make form controls more touch-friendly */
+        .form-control, .btn {
+          min-height: 44px;
+        }
+
+        /* Adjust hint modal for very small screens */
+        #hint-moves {
+          font-size: 1rem;
+          word-break: break-word;
+        }
+      }
+    </style>
+
   </head>
   <body>
-    <div class="col">
-      <div class="row">
-        <div class="col">
-          <div class="card mt-2">
+    <div class="container-fluid">
+      <div class="row justify-content-center">
+        <div class="col-12 col-lg-10 col-xl-8">
+          <div class="card mt-3">
+            <div class="card-header bg-primary text-white">
+              <h3 class="mb-0 text-center">Chess Openings Trainer</h3>
+            </div>
             <div class="card-body">
-              <div class="row justify-content-center">
-                <div class="col-5">
-                  <div id="chess_board" class="mx-auto mb-2" style="width: 400px;"></div>
-              
-                  <div class="row mx-auto mb-2" style="width: 400px;">
-                    <strong class="mx-auto mb-2"><div id="status"></div></strong>
+              <div class="row">
+                <!-- Chess Board Column -->
+                <div class="col-12 col-md-6 mb-4 mb-md-0 chess-board-column">
+                  <div class="board-container">
+                    <div id="chess_board" class="mx-auto mb-3" style="width: 400px;"></div>
 
-                    <div class="input-group mb-3">
-                      <input id="fen" type="text" class="form-control">
-                      <div class="input-group-append">
-                        <button id="set_fen" class="btn btn-outline-success">Set FEN</button>
+                    <!-- Progress Overlay -->
+                    <div id="progress-overlay" class="progress-overlay">
+                      <div class="progress-content">
+                        <div class="progress-text">🤖 Engine is thinking...</div>
+                        <div class="progress-bar-container">
+                          <div id="progress-bar-fill" class="progress-bar-fill"></div>
+                        </div>
+                        <div id="progress-time" class="progress-time">0.0s</div>
                       </div>
                     </div>
-                    
-                    <div class="input-group mb-3">
-                      <select id="move_time" class="form-control mr-2">
-                        <option value="0">N/A</option>
-                        <option value="instant" selected>Instant response</option>
-                        <option value="1">1 sec</option>
-                        <option value="2">2 sec</option>
-                        <option value="3">3 sec</option>
-                        <option value="4">4 sec</option>
-                        <option value="5">5 sec</option>
-                        <option value="6">6 sec</option>
-                        <option value="7">7 sec</option>
-                        <option value="8">8 sec</option>
-                        <option value="9">9 sec</option>
-                        <option value="10">10 sec</option>
-                      </select>   
-                      <select id="fixed_depth" class="form-control ml-2">
-                        <option value="0">N/A</option>
-                        <option value="1">1 ply</option>
-                        <option value="2">2 ply</option>
-                        <option value="3">3 ply</option>
-                        <option value="4">4 ply</option>
-                        <option value="5">5 ply</option>
-                        <option value="6">6 ply</option>
-                        <option value="7">7 ply</option>
-                        <option value="8">8 ply</option>
-                        <option value="9">9 ply</option>
-                        <option value="10">10 ply</option>
-                        <option value="11">11 ply</option>
-                        <option value="12">12 ply</option>
-                      </select>
-                    </div>
-                    
-                    <div class="btn-group">
-                      <button id="new_game" class="btn btn-outline-secondary">New game</button>
-                      <button id="make_move" class="btn btn-outline-secondary">Make move</button>
-                      <button id="take_back" class="btn btn-outline-secondary">Take back</button>
-                      <button id="flip_board" class="btn btn-outline-secondary">Flip board</button>
-                    </div>
-                    
+                  </div>
+
+                  <div class="text-center">
+                    <strong><div id="status" class="mb-3"></div></strong>
                   </div>
                 </div>
-              </div>
-            </div>
-            <div class="card-footer">
-              <div class="input-group mt-2 mb-3">
-                <a href="https://github.com/maksimKorzh/bbc" class="btn btn-primary mx-auto ml-2">BBC source code!</a>
-                <a href="mailto:freesoft.for.people@gmail.com" class="text-dark nav-link mx-auto"><strong class="ml-2 mt-1">freesoft.for.people@gmail.com</strong></a>
-                <a href="https://www.patreon.com/bePatron?u=29097253" class="btn btn-warning mx-auto">Become a Patron!</a>
+
+                <!-- Controls Column -->
+                <div class="col-12 col-md-6 controls-column">
+                  <!-- Training Settings (shown when not training) -->
+                  <div id="training-settings" class="trainer-controls">
+                    <h5 class="mb-3 text-center">Training Settings</h5>
+
+                    <!-- Board Orientation Toggle -->
+                    <div class="control-group">
+                      <div class="control-label">Board Orientation</div>
+                      <div class="orientation-toggle">
+                        <span>Play as:</span>
+                        <div class="btn-group btn-group-toggle" data-toggle="buttons">
+                          <label class="btn btn-outline-primary active">
+                            <input type="radio" name="orientation" id="white_orientation" value="white" checked> White
+                          </label>
+                          <label class="btn btn-outline-primary">
+                            <input type="radio" name="orientation" id="black_orientation" value="black"> Black
+                          </label>
+                        </div>
+                      </div>
+                    </div>
+
+                    <!-- FEN Input -->
+                    <div class="control-group">
+                      <div class="control-label">Starting Position (FEN)</div>
+                      <div class="input-group">
+                        <input id="fen" type="text" class="form-control" placeholder="Enter FEN or leave empty for starting position">
+                        <div class="input-group-append">
+                          <button id="reset_board" class="btn btn-outline-warning">Reset</button>
+                          <button id="set_fen" class="btn btn-outline-success">Set Position</button>
+                        </div>
+                      </div>
+                    </div>
+
+                    <!-- Move Time -->
+                    <div class="control-group">
+                      <div class="control-label">Move Time</div>
+                      <select id="move_time" class="form-control">
+                        <option value="instant">Instant response</option>
+                        <option value="1">1 sec</option>
+                        <option value="3">3 sec</option>
+                        <option value="5" selected>5 sec</option>
+                        <option value="10">10 sec</option>
+                        <option value="15">15 sec</option>
+                        <option value="30">30 sec</option>
+                        <option value="60">1 minute</option>
+                      </select>
+                    </div>
+
+                    <!-- Engine Selection -->
+                    <div class="control-group">
+                      <div class="control-label">Chess Engine</div>
+                      <select id="engine" class="form-control">
+                        <option value="stockfish" selected>Stockfish</option>
+                        <option value="lczero">Leela Chess Zero (LC0)</option>
+                      </select>
+                    </div>
+
+                    <!-- Start Training Button -->
+                    <button id="start_training" class="btn btn-success start-training-btn">
+                      🚀 Start Training
+                    </button>
+                  </div>
+
+                  <!-- Training Session (shown when training) -->
+                  <div id="training-session" class="trainer-controls" style="display: none;">
+                    <h5 class="mb-3 text-center">Training Session</h5>
+
+                    <!-- Training Stats -->
+                    <div class="row mb-3">
+                      <div class="col-6">
+                        <div class="text-center">
+                          <div class="control-label">Remaining Time</div>
+                          <div id="remaining-time" class="h4 text-primary">5:00</div>
+                        </div>
+                      </div>
+                      <div class="col-6">
+                        <div class="text-center">
+                          <div class="control-label">Moves Passed</div>
+                          <div id="moves-passed" class="h4 text-success">0</div>
+                        </div>
+                      </div>
+                    </div>
+
+                    <!-- Training Info -->
+                    <div class="mb-3">
+                      <div class="small text-muted text-center">
+                        <div>Playing as: <span id="session-orientation" class="font-weight-bold"></span></div>
+                        <div>Engine: <span id="session-engine" class="font-weight-bold"></span></div>
+                        <div>Move Time: <span id="session-move-time" class="font-weight-bold"></span></div>
+                      </div>
+                    </div>
+
+                    <!-- Surrender Button -->
+                    <button id="surrender" class="btn btn-danger start-training-btn">
+                      🏳️ Surrender
+                    </button>
+                  </div>
+
+                  <!-- Hint Modal (shown when player makes wrong move) -->
+                  <div id="hint-modal" class="trainer-controls" style="display: none; border: 3px solid #ffc107; background-color: #fff3cd;">
+                    <h5 class="mb-3 text-center text-warning">💡 Hint: Optimal Moves</h5>
+
+                    <div class="mb-3">
+                      <div class="text-center">
+                        <div class="control-label">The best moves were:</div>
+                        <div id="hint-moves" class="h5 text-dark font-weight-bold"></div>
+                      </div>
+                    </div>
+
+                    <div class="mb-3">
+                      <div class="small text-muted text-center">
+                        Study these moves and try to understand the position better.
+                      </div>
+                    </div>
+
+                    <div class="mb-3">
+                      <div class="small text-warning text-center font-weight-bold">
+                        ⚠️ 30 seconds will be deducted from your timer
+                      </div>
+                    </div>
+
+                    <!-- Continue Button -->
+                    <button id="continue-after-hint" class="btn btn-warning start-training-btn">
+                      ✅ Continue Training (-30s)
+                    </button>
+                  </div>
+
+                  <!-- Training Summary Modal (shown when training ends) -->
+                  <div id="training-summary-modal" class="trainer-controls" style="display: none; border: 3px solid #17a2b8; background-color: #d1ecf1;">
+                    <h5 class="mb-3 text-center text-info">📊 Training Session Summary</h5>
+
+                    <div class="mb-3">
+                      <div class="text-center">
+                        <div class="control-label">Moves Passed</div>
+                        <div id="summary-moves-passed" class="h4 text-success">0</div>
+                      </div>
+                    </div>
+
+                    <div class="mb-3">
+                      <div class="text-center">
+                        <div class="control-label">Session Ended</div>
+                        <div id="summary-end-reason" class="h5 text-dark font-weight-bold"></div>
+                      </div>
+                    </div>
+
+                    <div class="mb-3">
+                      <div class="small text-muted text-center">
+                        <div>Duration: <span id="summary-duration" class="font-weight-bold"></span></div>
+                        <div>Engine: <span id="summary-engine-used" class="font-weight-bold"></span></div>
+                        <div>Playing as: <span id="summary-orientation-used" class="font-weight-bold"></span></div>
+                      </div>
+                    </div>
+
+                    <!-- Action Buttons -->
+                    <div class="row">
+                      <div class="col-6">
+                        <button id="repeat-training" class="btn btn-success btn-block">
+                          🔄 Repeat
+                        </button>
+                      </div>
+                      <div class="col-6">
+                        <button id="close-summary" class="btn btn-secondary btn-block">
+                          ✖️ Close
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+
+                </div>
               </div>
             </div>
           </div>
@@ -96,137 +465,540 @@
 <script>
   // make computer move
   function make_move() {
-    // disable take back button
-    $('#take_back').attr('disabled', true);
-    
+    trainingMove++;
+
+    // Use training parameters if training is active, otherwise use current UI values
+    var moveTime = trainingActive ? trainingParams.moveTime : $('#move_time option:selected').val();
+    var engineType = trainingActive ? trainingParams.engine : $('#engine option:selected').val();
+    var orientation = trainingActive ? trainingParams.orientation : board.orientation();
+
+    // Show progress overlay and start progress tracking
+    showProgress(moveTime);
+
     // make HTTP POST request to make move API
     $.post('/make_move',{
         'pgn': game.pgn(),
-        'fixed_depth': $('#fixed_depth option:selected').val(),
-        'move_time': $('#move_time option:selected').val(),
-        'orientation': board.orientation()
+        'move_time': moveTime,
+        'engine_type': engineType,
+        'orientation': orientation,
+        'training_move': trainingMove
       }, function(data) {
-        // load fen into the current board state
-        game.move(data.best_move, { sloppy: true })
-        
+        // Hide progress overlay
+        hideProgress();
+        // if training is active, check continue flag first
+        if (trainingActive && data.continue === false) {
+          // Check if there are hint moves to show
+          if (data.best_move && data.best_move.trim() !== '') {
+            // Show hint with the optimal moves (don't execute the move)
+            showHint(data.best_move);
+            return; // Exit early, don't update board
+          } else {
+            // No hints available, apply penalty and restart
+            remainingTime = Math.max(0, remainingTime - 30);
+            updateTimerDisplay();
+
+            // If time runs out due to penalty, stop training
+            if (remainingTime <= 0) {
+              stopTraining('Time is up!', 'timeout');
+            } else {
+              // Otherwise restart the training round
+              restartTrainingRound();
+            }
+            return; // Exit early, don't update board
+          }
+        }
+
+        // load fen into the current board state (only if continuing)
+        if ('best_move' in data && data.best_move.trim() !== '') {
+          game.move(data.best_move, { sloppy: true })
+        }
         // update board position
         board.position(game.fen());
 
         // update game status
         updateStatus();
-        
-        // re-enable take back button
-        $('#take_back').attr('disabled', false);
+
+        // if training is active and continuing, increment moves counter
+        if (trainingActive && data.continue !== false) {
+          // Increment moves passed counter
+          if (trainingMove > 1) {
+            movesPassed++;
+            $('#moves-passed').text(movesPassed);
+          }
+        }
+    }).fail(function() {
+        // Hide progress overlay on error
+        hideProgress();
+        if (trainingActive) {
+          stopTraining('Error occurred during training.', 'error');
+        }
     });
   }
 
-  // handle new game button click
-  $('#new_game').on('click', function() {
-    // reset board state
+  // training state
+  var trainingActive = false;
+  var trainingParams = {};
+  var trainingTimer = null;
+  var remainingTime = 300; // 5 minutes in seconds
+  var movesPassed = 0;
+  var trainingMove = 0;
+  var trainingStartTime = null;
+  var trainingEndReason = null;
+
+  // timer functions
+  function startTimer() {
+    trainingTimer = setInterval(function() {
+      remainingTime--;
+      updateTimerDisplay();
+
+      if (remainingTime <= 0) {
+        stopTraining('Time is up!', 'timeout');
+      }
+    }, 1000);
+  }
+
+  function stopTimer() {
+    if (trainingTimer) {
+      clearInterval(trainingTimer);
+      trainingTimer = null;
+    }
+  }
+
+  function updateTimerDisplay() {
+    var minutes = Math.floor(remainingTime / 60);
+    var seconds = remainingTime % 60;
+    var timeString = minutes + ':' + (seconds < 10 ? '0' : '') + seconds;
+    $('#remaining-time').text(timeString);
+
+    // Change color when time is running low
+    if (remainingTime <= 60) {
+      $('#remaining-time').removeClass('text-primary').addClass('text-danger');
+    } else if (remainingTime <= 120) {
+      $('#remaining-time').removeClass('text-primary').addClass('text-warning');
+    }
+  }
+
+  function resetTimer() {
+    remainingTime = 300;
+    updateTimerDisplay();
+    $('#remaining-time').removeClass('text-warning text-danger').addClass('text-primary');
+  }
+
+  // Timer freeze/unfreeze functions
+  function freezeTimer() {
+    if (trainingTimer) {
+      clearInterval(trainingTimer);
+      trainingTimer = null;
+    }
+    $('#remaining-time').addClass('timer-frozen');
+  }
+
+  function unfreezeTimer() {
+    $('#remaining-time').removeClass('timer-frozen').addClass('timer-unfreezing');
+
+    // Remove the unfreezing animation after it completes
+    setTimeout(function() {
+      $('#remaining-time').removeClass('timer-unfreezing');
+    }, 800);
+
+    // Restart the timer
+    if (trainingActive && remainingTime > 0) {
+      startTimer();
+    }
+  }
+
+  // Progress tracking variables
+  var progressTimer = null;
+  var progressStartTime = null;
+  var progressDuration = 0;
+
+  // Progress tracking functions
+  function showProgress(moveTime) {
+    // Calculate progress duration based on move time
+    if (moveTime === 'instant') {
+      progressDuration = 500; // 0.5 seconds for instant moves
+    } else {
+      progressDuration = parseInt(moveTime) * 1000; // Convert seconds to milliseconds
+    }
+
+    // Show overlay and disable board
+    $('#progress-overlay').show();
+    $('#chess_board').addClass('board-disabled');
+
+    // Start progress tracking
+    progressStartTime = Date.now();
+    updateProgress();
+
+    // Update progress every 50ms for smoother animation
+    progressTimer = setInterval(updateProgress, 50);
+  }
+
+  function hideProgress() {
+    // Clear progress timer
+    if (progressTimer) {
+      clearInterval(progressTimer);
+      progressTimer = null;
+    }
+
+    // Hide overlay and enable board
+    $('#progress-overlay').hide();
+    $('#chess_board').removeClass('board-disabled');
+
+    // Reset progress bar and time display
+    $('#progress-bar-fill').css('width', '0%');
+    $('#progress-time').text('0.0s');
+  }
+
+  function updateProgress() {
+    if (!progressStartTime) return;
+
+    var elapsed = Date.now() - progressStartTime;
+    var percentage = Math.min(100, (elapsed / progressDuration) * 100);
+    var elapsedSeconds = elapsed / 1000;
+    var totalSeconds = progressDuration / 1000;
+
+    // Update progress bar with smooth animation
+    $('#progress-bar-fill').css('width', percentage + '%');
+
+    // Display elapsed time and total expected time
+    $('#progress-time').text('Waiting ' + (totalSeconds - elapsedSeconds).toFixed(1) + ' seconds...');
+
+    // If we've reached 100% but the request hasn't completed, slow down the progress
+    if (percentage >= 100) {
+      clearInterval(progressTimer);
+      progressTimer = null;
+
+      // Keep the progress at 95% to indicate we're still waiting
+      $('#progress-bar-fill').css('width', '95%');
+      $('#progress-time').text('Waiting for response...');
+    }
+  }
+
+  // Hint handling functions
+  function showHint(hintMovesUci) {
+    // Freeze the timer
+    freezeTimer();
+
+    // Convert UCI moves to SAN format for display
+    var sanMoves = convertUciToSan(hintMovesUci);
+
+    // Display the hint moves
+    $('#hint-moves').text(sanMoves);
+
+    // Hide training session, show hint modal
+    $('#training-session').hide();
+    $('#hint-modal').show();
+  }
+
+  function hideHint() {
+    // Hide hint modal, show training session
+    $('#hint-modal').hide();
+    $('#training-session').show();
+
+    // Unfreeze the timer
+    unfreezeTimer();
+  }
+
+  function convertUciToSan(uciMovesString) {
+    if (!uciMovesString || uciMovesString.trim() === '') {
+      return 'No moves available';
+    }
+
+    // Split the UCI moves by space and filter out empty strings
+    var uciMoves = uciMovesString.trim().split(' ').filter(function(move) {
+      return move.trim() !== '';
+    });
+
+    if (uciMoves.length === 0) {
+      return 'No moves available';
+    }
+
+    var sanMoves = [];
+
+    try {
+      // Convert each UCI move to SAN
+      for (var i = 0; i < uciMoves.length; i++) {
+        try {
+          var tempGame = new Chess();
+          tempGame.load_pgn(game.pgn());
+
+          // Go back one move to get the position before the player's move
+          var history = tempGame.history();
+          if (history.length > 0) {
+            tempGame.undo();
+          }
+          var move = tempGame.move(uciMoves[i], { sloppy: true });
+          if (move) {
+            sanMoves.push(move.san);
+          } else {
+            sanMoves.push(uciMoves[i]); // Fallback to UCI if conversion fails
+          }
+        } catch (e) {
+          console.log('Error converting UCI move:', uciMoves[i], e);
+          sanMoves.push(uciMoves[i]); // Fallback to UCI if conversion fails
+        }
+      }
+    } catch (e) {
+      console.log('Error setting up temporary game:', e);
+      // If we can't set up the game, just return the UCI moves
+      return uciMoves.join(', ');
+    }
+
+    return sanMoves.length > 0 ? sanMoves.join(', ') : uciMoves.join(', ');
+  }
+
+  function restartTrainingRound(makeFirstMove = true) {
+    // Reset game to starting position using saved PGN to preserve history
+    if (trainingParams.startingPgn) {
+      game.load_pgn(trainingParams.startingPgn);
+    } else {
+      game.reset();
+    }
+
+    // Update board position
+    board.position(game.fen());
+
+    // Set correct orientation
+    board.orientation(trainingParams.orientation);
+
+    // Update status
+    updateStatus();
+
+    // Bot makes first move after a short delay
+    trainingMove = 0;
+    if (makeFirstMove) {
+      setTimeout(make_move, 800);
+    }
+  }
+
+  function stopTraining(message, endReason) {
+    trainingActive = false;
+    stopTimer();
+
+    // Store end reason for summary
+    trainingEndReason = endReason || 'manual';
+
+    // Show training summary instead of just hiding everything
+    showTrainingSummary(message);
+
+    // Reset button
+    $('#start_training').removeClass('btn-danger').addClass('btn-success');
+    $('#start_training').html('🚀 Start Training');
+
+    restartTrainingRound(makeFirstMove=false);
+  }
+
+  function showTrainingSummary(message) {
+    // Hide all other modals and show summary
+    $('#training-settings').hide();
+    $('#training-session').hide();
+    $('#hint-modal').hide();
+    $('#training-summary-modal').show();
+
+    // Remove timer freeze styling
+    $('#remaining-time').removeClass('timer-frozen timer-unfreezing');
+
+    // Calculate training duration
+    var duration = 'Unknown';
+    if (trainingStartTime) {
+      var endTime = new Date();
+      var durationMs = endTime - trainingStartTime;
+      var durationSeconds = Math.floor(durationMs / 1000);
+      var minutes = Math.floor(durationSeconds / 60);
+      var seconds = durationSeconds % 60;
+      duration = minutes + ':' + (seconds < 10 ? '0' : '') + seconds;
+    }
+
+    // Determine end reason with emoji
+    var endReasonDisplay = '';
+    switch(trainingEndReason) {
+      case 'timeout':
+        endReasonDisplay = '⏰ Timeout';
+        break;
+      case 'surrender':
+        endReasonDisplay = '🏳️ Surrender';
+        break;
+      case 'manual':
+        endReasonDisplay = '⏹️ Manual Stop';
+        break;
+      case 'error':
+        endReasonDisplay = '⚠️ Error';
+        break;
+      default:
+        endReasonDisplay = '⏹️ Session Ended';
+    }
+
+    // Update summary display
+    $('#summary-moves-passed').text(movesPassed);
+    $('#summary-end-reason').text(endReasonDisplay);
+    $('#summary-duration').text(duration);
+    $('#summary-engine-used').text(trainingParams.engine === 'stockfish' ? 'Stockfish' : 'Leela Chess Zero');
+    $('#summary-orientation-used').text(trainingParams.orientation ? trainingParams.orientation.charAt(0).toUpperCase() + trainingParams.orientation.slice(1) : 'Unknown');
+  }
+
+  // handle orientation toggle
+  $('input[name="orientation"]').on('change', function() {
+    var selectedOrientation = $('input[name="orientation"]:checked').val();
+    if (selectedOrientation === 'white') {
+      board.orientation('white');
+    } else {
+      board.orientation('black');
+    }
+  });
+
+  // handle surrender button click
+  $('#surrender').on('click', function() {
+    stopTraining('Training session ended by surrender.', 'surrender');
+  });
+
+  // handle continue after hint button click
+  $('#continue-after-hint').on('click', function() {
+    hideHint();
+    // Subtract 30 seconds from timer for wrong move penalty
+    remainingTime = Math.max(0, remainingTime - 30);
+    updateTimerDisplay();
+
+    // If time runs out due to penalty, stop training
+    if (remainingTime <= 0) {
+      stopTraining('Time is up!', 'timeout');
+    } else {
+      // Otherwise restart the training round
+      restartTrainingRound();
+    }
+  });
+
+  // handle repeat training button click
+  $('#repeat-training').on('click', function() {
+    // Hide summary modal and show training settings
+    $('#training-summary-modal').hide();
+    $('#training-settings').show();
+
+    // Automatically start training with the same parameters
+    if (trainingParams && Object.keys(trainingParams).length > 0) {
+      // Set the form values to match previous training
+      $('input[name="orientation"][value="' + trainingParams.orientation + '"]').prop('checked', true);
+      $('#move_time').val(trainingParams.moveTime);
+      $('#engine').val(trainingParams.engine);
+
+      // Trigger the start training button click
+      setTimeout(function() {
+        $('#start_training').click();
+      }, 100);
+    }
+  });
+
+  // handle close summary button click
+  $('#close-summary').on('click', function() {
+    // Hide summary modal and show training settings
+    $('#training-summary-modal').hide();
+    $('#training-settings').show();
+  });
+
+  // handle start training button click
+  $('#start_training').on('click', function() {
+    if (!trainingActive) {
+      trainingMove = 0;
+      // Save training parameters
+      var selectedOrientation = $('input[name="orientation"]:checked').val();
+      var moveTime = $('#move_time option:selected').val();
+      var engine = $('#engine option:selected').val();
+      
+        // Validate that it's the bot's turn to move
+      var isPlayerWhite = selectedOrientation === 'white';
+      var isWhiteToMove = game.turn() === 'w';
+      var isPlayerTurn = isPlayerWhite === isWhiteToMove;
+
+      if (isPlayerTurn) {
+        alert('Training cannot start - it\'s your turn to move! Please set up a position where the engine should move first.');
+        stopTraining('', 'manual');
+        return;
+      }
+
+      trainingParams = {
+        orientation: selectedOrientation,
+        startingPgn: game.pgn(),
+        moveTime: moveTime,
+        engine: engine
+      };
+
+      // Start training
+      trainingActive = true;
+      movesPassed = 0;
+      trainingStartTime = new Date();
+      resetTimer();
+
+      // Hide settings, show session
+      $('#training-settings').hide();
+      $('#training-session').show();
+
+      // Update session info
+      $('#session-orientation').text(selectedOrientation.charAt(0).toUpperCase() + selectedOrientation.slice(1));
+      $('#session-engine').text(engine === 'stockfish' ? 'Stockfish' : 'Leela Chess Zero');
+      // Format move time display
+      var moveTimeDisplay;
+      if (moveTime === 'instant') {
+        moveTimeDisplay = 'Instant';
+      } else if (moveTime === '60') {
+        moveTimeDisplay = '1 minute';
+      } else {
+        moveTimeDisplay = moveTime + ' sec';
+      }
+      $('#session-move-time').text(moveTimeDisplay);
+      $('#moves-passed').text(movesPassed);
+
+      // Set board orientation
+      board.orientation(selectedOrientation);
+
+      updateStatus();
+      startTimer();
+
+      // Bot always makes the first move in training
+      make_move();
+    } else {
+      // Stop training
+      stopTraining('', 'manual');
+    }
+  });
+
+  // handle reset board button click
+  $('#reset_board').on('click', function() {
+    // reset board state to starting position
     game.reset();
-    
+
     // set initial board position
     board.position('start');
-  });
-  
-  // handle make move button click
-  $('#make_move').on('click', function() {
-    // make computer move
-    make_move();
-  });
-  
-  // handle take back button click
-  $('#take_back').on('click', function() {
-    // take move back
-    game.undo();
-    game.undo();
-    
-    // update board position
-    board.position(game.fen());
-    
-    // update game status
+
+    // preserve current orientation (don't reset orientation radio buttons)
+
+    // stop training if active
+    if (trainingActive) {
+      stopTraining('', 'manual');
+    }
+
     updateStatus();
-  });
-  
-  // handle flip board button click
-  $('#flip_board').on('click', function() {
-    // flip board
-    board.flip();
-    
-  });
-  
-  // handle select move time option
-  $('#move_time').on('change', function() {
-    // disable fixed depth
-    $('#fixed_depth').val('0');
-  });
-  
-  // handle select fixed depth option
-  $('#fixed_depth').on('change', function() {
-    // disable fixed depth
-    $('#move_time').val('0');
   });
   
   // handle set FEN button click
   $('#set_fen').on('click', function() {
     // set user FEN
-    
-    // FEN parsed
-    if (game.load($('#fen').val()))
-      // set board position
-      board.position(game.fen());
-    
-    // FEN is not parsed
-    else
-      alert('Illegal FEN!');
-  });
-  
-  // handle download button click
-  $('#download_button').on('click', function() {
-    // init date
-    var date = new Date();
-    
-    // PGN header
-    var pgn_header = '';
-    
-    // get user name
-    var user_name = prompt('What is your name?');
-    
-    // get user color
-    var user_color = prompt('What color did you play with? (please type "White" or "Black")');
-    
-    // if user color is white
-    if (user_color == 'White')
-    {
-      // init PGN header
-      pgn_header = '[White "' + user_name + '"]\n[Black "BBC 1.2"]\n\n';
-      
-      // init PGN filename
-      $('#download_link').attr('download', user_name + '_vs_BBC_' + date.toString().replace(/\s/g, "_") + '.pgn');
+    var fenValue = $('#fen').val().trim();
+
+    if (fenValue === '') {
+      // Empty FEN means starting position
+      game.reset();
+      board.position('start');
+      updateStatus();
+    } else {
+      // FEN parsed
+      if (game.load(fenValue)) {
+        // set board position
+        board.position(game.fen());
+        updateStatus();
+      } else {
+        // FEN is not parsed
+        alert('Invalid FEN position!');
+      }
     }
-    // if user color is black
-    else if (user_color == 'Black')
-    {
-      // init PGN header
-      pgn_header = '[White "BBC 1.2"]\n[Black "' + user_name + '"]\n\n';
-      
-      // init PGN filename
-      $('#download_link').attr('download', 'BBC_vs_' + user_name + '_' + date.toString().replace(/\s/g, "_") + '.pgn');
-    }
-    // otherwise it's error
-    else
-    {
-      alert('Color is illegal, please type "White" or "Black"');
-      return; 
-    }
-    
-    // init download link
-    $('#download_link').attr('href', window.URL.createObjectURL(
-      new Blob([pgn_header + game.pgn()], {type: 'text'})
-    ));
-    
-    // mimic download link click
-    $('#download_link')[0].click();
   });
 
   // GUI board & game state variables
@@ -234,21 +1006,15 @@
   var game = new Chess();
   var $status = $('#status');
   var $fen = $('#fen');
-  var $pgn = $('#pgn');
-  var $score = $('#score');
-  var $depth = $('#depth');
-  var $time = $('#time');
-  var $nodes = $('#nodes');
-  var $knps = $('#knps')
 
   // on picking up a piece
   function onDragStart (source, piece, position, orientation) {
     // do not pick up pieces if the game is over
-    if (game.game_over()) return false
+    // if (game.game_over()) return false
 
-    // only pick up pieces for the side to move
-    if ((game.turn() === 'w' && piece.search(/^b/) !== -1) ||
-        (game.turn() === 'b' && piece.search(/^w/) !== -1)) {
+    var wrong_color = ((game.turn() === 'w' && piece.search(/^b/) !== -1) ||
+        (game.turn() === 'b' && piece.search(/^w/) !== -1))
+    if (wrong_color && trainingActive) {
       return false
     }
   }
@@ -265,11 +1031,13 @@
     // illegal move
     if (move === null) return 'snapback'
 
-    // make computer move
-    // make_move();
-    
     // update game status
     updateStatus();
+
+    // if training is active and game is not over, make computer move
+    if (trainingActive && !game.game_over()) {
+      setTimeout(make_move, 300); // Small delay for better UX
+    }
   }
 
   // update the board position after the piece snap
@@ -310,7 +1078,6 @@
     // update DOM elements
     $status.html(status)
     $fen.val(game.fen())
-    $pgn.html(game.pgn())
   }
 
   // chess board configuration

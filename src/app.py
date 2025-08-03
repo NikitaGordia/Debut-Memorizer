@@ -24,6 +24,8 @@ def create_app():
     app.explorer = Explorer(os.environ.get("EXPLORER_CACHE_PATH"), num_workers=2)
     app.judge = Judge(app.pool)
     app.MIN_OCCURRENCES = 10
+    app.SAMPLE_THRESHOLD = 0.05
+    app.MULTI_PV = 3
 
     return app
 
@@ -31,50 +33,43 @@ def create_app():
 app = create_app()
 
 
-def finish_game() -> dict:
-    return {}
-
-
-def surrender(uci: str, engine_type: str, move_limit: int) -> dict:
-    moves = app.pool.submit_and_get(uci, engine_type, move_limit)
-    if len(moves) == 0:
-        raise Exception(
-            "Engine returned no moves, uci: {uci}, time_limit: {move_limit}"
-        )
-
-    move = random.choice(list(moves))
-    print(f"🤖 Engine move: {move}")
-
-    board = uci2board(uci)
-    board.push(chess.Move.from_uci(move))
+def finish_game(hint_move: str = "") -> dict:
     return {
-        "fen": board.fen(),
-        "best_move": str(move),
+        "best_move": hint_move,
         "continue": False,
     }
 
 
-def continue_game(uci: str, engine_type: str, move_limit: int) -> dict:
+def continue_game(
+    uci: str, training_move: int, engine_type: str, move_limit: int
+) -> dict:
+    # Don't judge the first move
+    if training_move > 1:
+        correct_move, best_moves = app.judge.last_move_is_correct(
+            uci, engine_type, move_limit, app.MULTI_PV
+        )
+        if not correct_move:
+            return finish_game(hint_move=" ".join(best_moves))
+    else:
+        correct_move = True
+
     moves_dst = app.explorer.submit_and_get(uci)
     if len(moves_dst) == 0:
         print("No moves found, finishing game.")
         return finish_game()
 
-    move, occurrences = sample_move(moves_dst)
+    move, occurrences = sample_move(moves_dst, threshold=app.SAMPLE_THRESHOLD)
     print(f"🧭 Explorer move: {move}, occurrences: {occurrences}")
     if occurrences < app.MIN_OCCURRENCES:
         print("Not enough occurrences, finishing game.")
         return finish_game()
 
-    correct_move = app.judge.last_move_is_correct(uci, engine_type, move_limit)
-
-    app.pool.submit_job(f"{uci} {move}", engine_type, move_limit)
+    app.pool.submit_job(f"{uci} {move}", engine_type, move_limit, app.MULTI_PV)
 
     board = uci2board(uci)
     board.push(chess.Move.from_uci(move))
 
     return {
-        "fen": board.fen(),
         "best_move": str(move),
         "continue": correct_move,
     }
@@ -97,6 +92,7 @@ def make_move():
     # extract move time value
     move_time = request.form.get("move_time")
     engine_type = request.form.get("engine_type", "stockfish")
+    training_move = int(request.form.get("training_move", 0))
 
     # if move time is available
     move_limit = 0.1 if move_time == "instant" else int(move_time)
@@ -107,9 +103,9 @@ def make_move():
     players_turn = orientation == board.turn
 
     if players_turn:
-        return surrender(uci, engine_type, move_limit)
+        return {"best_move": "", "continue": False}
     else:
-        return continue_game(uci, engine_type, move_limit)
+        return continue_game(uci, training_move, engine_type, move_limit)
 
 
 # main driver

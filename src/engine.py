@@ -9,6 +9,8 @@ import os
 
 load_dotenv()
 
+ACCEPTABLE_SCORE_DEVIATION = 0.2
+
 
 class Book:
     def __init__(self, book_path: str):
@@ -35,10 +37,21 @@ class Engine(ABC):
     def __init__(self, path: str):
         self._engine = chess.engine.SimpleEngine.popen_uci(path)
 
-    def analyze(self, uci: str, time_limit: float) -> str:
-        result = self._engine.play(uci2board(uci), chess.engine.Limit(time=time_limit))
-        move = result.move
-        return str(move)
+    def analyze(self, uci: str, time_limit: float, multi_pv: int) -> set[str]:
+        result = self._engine.analyse(
+            uci2board(uci), chess.engine.Limit(time=time_limit), multipv=multi_pv
+        )
+        best_score = abs(result[0]["score"].relative.score())
+        score_range = (
+            (1 - ACCEPTABLE_SCORE_DEVIATION) * best_score,
+            (1 + ACCEPTABLE_SCORE_DEVIATION) * best_score,
+        )
+        best_moves = [
+            str(move["pv"][0])
+            for move in result
+            if score_range[0] <= abs(move["score"].relative.score()) <= score_range[1]
+        ]
+        return set(best_moves)
 
     def __enter__(self):
         return self
@@ -81,28 +94,27 @@ class ChessAnalysisPool:
         print(f"♟️ Chess Analysis Pool initialized with {num_workers} workers.")
 
     def _run_analysis(
-        self, uci: str, engine_type: str, time_limit: float
+        self, uci: str, engine_type: str, time_limit: float, multi_pv: int
     ) -> List[chess.Move]:
         book_moves = self.book.find(uci)
-        if book_moves:
-            print(f"📖 Book moves: {book_moves}")
-            return book_moves
 
         with make_engine(engine_type) as engine:
-            move = engine.analyze(uci, time_limit)
-            print(f"🤖 Engine move: {move}")
-            return set(
-                [
-                    str(move),
-                ]
+            engine_moves = engine.analyze(uci, time_limit, multi_pv)
+            print(
+                f"Moves (tm: {time_limit}, mpv: {multi_pv}): 🤖 {engine_moves} + 📖 {book_moves}"
             )
+            return book_moves | engine_moves
 
-    def submit_job(self, uci: str, engine_type: str, time_limit: int) -> str:
+    def submit_job(
+        self, uci: str, engine_type: str, time_limit: int, multi_pv: int
+    ) -> str:
         if uci in self._futures:
             print(f"Job for {uci} already submitted. Reusing job.")
             return uci
         print(f"Job {uci} is submitted.")
-        future = self.executor.submit(self._run_analysis, uci, engine_type, time_limit)
+        future = self.executor.submit(
+            self._run_analysis, uci, engine_type, time_limit, multi_pv
+        )
 
         self._futures[uci] = future
 
@@ -115,9 +127,11 @@ class ChessAnalysisPool:
         return result
 
     def submit_and_get(
-        self, uci: str, engine_type: str, time_limit: int
+        self, uci: str, engine_type: str, time_limit: int, multi_pv: int
     ) -> List[chess.Move]:
-        self.submit_job(uci, engine_type=engine_type, time_limit=time_limit)
+        self.submit_job(
+            uci, engine_type=engine_type, time_limit=time_limit, multi_pv=multi_pv
+        )
         return self.get_result(uci)
 
     def shutdown(self):
