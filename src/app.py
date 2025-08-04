@@ -1,13 +1,12 @@
 from flask import Flask
 from flask import render_template
 from flask import request
-from flask import jsonify
 import os
 from engine import ChessAnalysisPool
 from utils import pgn2board, pgn2uci, sample_move, uci2board
 from dotenv import load_dotenv
 import chess
-import random
+from utils import previous_move_and_uci
 from explorer import Explorer
 from judge import Judge
 
@@ -33,10 +32,11 @@ def create_app():
 app = create_app()
 
 
-def finish_game(hint_move: str = "") -> dict:
+def finish_game(hint_move: str = "", fen_before_wrong_move: str = "") -> dict:
     return {
         "best_move": hint_move,
         "continue": False,
+        "fen_before_wrong_move": fen_before_wrong_move,
     }
 
 
@@ -49,7 +49,13 @@ def continue_game(
             uci, engine_type, move_limit, app.MULTI_PV
         )
         if not correct_move:
-            return finish_game(hint_move=" ".join(best_moves))
+            _, prev_uci = previous_move_and_uci(uci)
+            prev_board = uci2board(prev_uci)
+            fen_before_wrong_move = prev_board.fen()
+            return finish_game(
+                hint_move=" ".join(best_moves),
+                fen_before_wrong_move=fen_before_wrong_move,
+            )
     else:
         correct_move = True
 

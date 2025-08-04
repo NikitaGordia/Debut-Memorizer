@@ -399,6 +399,12 @@
                       </div>
                     </div>
 
+                    <div class="mb-3" id="fen-copied-notification" style="display: none;">
+                      <div class="small text-success text-center font-weight-bold">
+                        📋 Position FEN copied to clipboard for analysis
+                      </div>
+                    </div>
+
                     <div class="mb-3">
                       <div class="small text-warning text-center font-weight-bold">
                         ⚠️ 30 seconds will be deducted from your timer
@@ -490,7 +496,7 @@
           // Check if there are hint moves to show
           if (data.best_move && data.best_move.trim() !== '') {
             // Show hint with the optimal moves (don't execute the move)
-            showHint(data.best_move);
+            showHint(data.best_move, data.fen_before_wrong_move);
             return; // Exit early, don't update board
           } else {
             // No hints available, apply penalty and restart
@@ -674,8 +680,37 @@
     }
   }
 
+  // Clipboard utility function
+  function copyToClipboard(text) {
+    if (navigator.clipboard && window.isSecureContext) {
+      // Use modern clipboard API if available
+      navigator.clipboard.writeText(text).then(function() {
+        console.log('FEN copied to clipboard: ' + text);
+      }).catch(function(err) {
+        console.error('Failed to copy FEN to clipboard: ', err);
+      });
+    } else {
+      // Fallback for older browsers
+      var textArea = document.createElement('textarea');
+      textArea.value = text;
+      textArea.style.position = 'fixed';
+      textArea.style.left = '-999999px';
+      textArea.style.top = '-999999px';
+      document.body.appendChild(textArea);
+      textArea.focus();
+      textArea.select();
+      try {
+        document.execCommand('copy');
+        console.log('FEN copied to clipboard (fallback): ' + text);
+      } catch (err) {
+        console.error('Failed to copy FEN to clipboard (fallback): ', err);
+      }
+      document.body.removeChild(textArea);
+    }
+  }
+
   // Hint handling functions
-  function showHint(hintMovesUci) {
+  function showHint(hintMovesUci, fenBeforeWrongMove) {
     // Freeze the timer
     freezeTimer();
 
@@ -684,6 +719,14 @@
 
     // Display the hint moves
     $('#hint-moves').text(sanMoves);
+
+    // Copy FEN to clipboard if provided and show notification
+    if (fenBeforeWrongMove && fenBeforeWrongMove.trim() !== '') {
+      copyToClipboard(fenBeforeWrongMove);
+      $('#fen-copied-notification').show();
+    } else {
+      $('#fen-copied-notification').hide();
+    }
 
     // Hide training session, show hint modal
     $('#training-session').hide();
@@ -694,6 +737,9 @@
     // Hide hint modal, show training session
     $('#hint-modal').hide();
     $('#training-session').show();
+
+    // Hide FEN copied notification
+    $('#fen-copied-notification').hide();
 
     // Unfreeze the timer
     unfreezeTimer();
