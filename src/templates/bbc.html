@@ -156,7 +156,7 @@
         /* Adjust chess board size for mobile */
         #chess_board {
           width: 100% !important;
-          max-width: 350px !important;
+          max-width: 500px !important;
         }
 
         /* Make trainer controls more compact on mobile */
@@ -225,7 +225,7 @@
         }
 
         #chess_board {
-          max-width: 300px !important;
+          max-width: 400px !important;
         }
 
         .trainer-controls {
@@ -247,6 +247,41 @@
           font-size: 1rem;
           word-break: break-word;
         }
+
+        /* Make FEN input smaller on mobile */
+        #hint-fen-display {
+          font-size: 0.75rem !important;
+        }
+      }
+
+      /* FEN copy section styling */
+      #hint-fen-display {
+        font-family: 'Courier New', monospace;
+        background-color: #f8f9fa;
+        border: 1px solid #dee2e6;
+        font-size: 0.85rem;
+      }
+
+      #copy-fen-button {
+        white-space: nowrap;
+      }
+
+      /* Notification styling */
+      #fen-copied-notification,
+      #fen-copy-failed-notification {
+        border-radius: 4px;
+        padding: 8px;
+        margin-top: 5px;
+      }
+
+      #fen-copied-notification {
+        background-color: #d4edda;
+        border: 1px solid #c3e6cb;
+      }
+
+      #fen-copy-failed-notification {
+        background-color: #f8d7da;
+        border: 1px solid #f5c6cb;
       }
     </style>
 
@@ -254,7 +289,7 @@
   <body>
     <div class="container-fluid">
       <div class="row justify-content-center">
-        <div class="col-12 col-lg-10 col-xl-8">
+        <div class="col-12 col-lg-11 col-xl-10">
           <div class="card mt-3">
             <div class="card-header bg-primary text-white">
               <h3 class="mb-0 text-center">Chess Openings Trainer</h3>
@@ -262,9 +297,9 @@
             <div class="card-body">
               <div class="row">
                 <!-- Chess Board Column -->
-                <div class="col-12 col-md-6 mb-4 mb-md-0 chess-board-column">
+                <div class="col-12 col-md-7 mb-4 mb-md-0 chess-board-column">
                   <div class="board-container">
-                    <div id="chess_board" class="mx-auto mb-3" style="width: 400px;"></div>
+                    <div id="chess_board" class="mx-auto mb-3" style="width: 480px;"></div>
 
                     <!-- Progress Overlay -->
                     <div id="progress-overlay" class="progress-overlay">
@@ -284,7 +319,7 @@
                 </div>
 
                 <!-- Controls Column -->
-                <div class="col-12 col-md-6 controls-column">
+                <div class="col-12 col-md-5 controls-column">
                   <!-- Training Settings (shown when not training) -->
                   <div id="training-settings" class="trainer-controls">
                     <h5 class="mb-3 text-center">Training Settings</h5>
@@ -399,9 +434,30 @@
                       </div>
                     </div>
 
+                    <!-- FEN Copy Section -->
+                    <div class="mb-3" id="fen-copy-section" style="display: none;">
+                      <div class="text-center">
+                        <div class="control-label">Position FEN for Analysis:</div>
+                        <div class="input-group mt-2">
+                          <input type="text" id="hint-fen-display" class="form-control" readonly style="font-size: 0.85rem;">
+                          <div class="input-group-append">
+                            <button id="copy-fen-button" class="btn btn-outline-primary btn-sm" title="Copy FEN to clipboard">
+                              📋 Copy
+                            </button>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+
                     <div class="mb-3" id="fen-copied-notification" style="display: none;">
                       <div class="small text-success text-center font-weight-bold">
-                        📋 Position FEN copied to clipboard for analysis
+                        ✅ Position FEN copied to clipboard for analysis
+                      </div>
+                    </div>
+
+                    <div class="mb-3" id="fen-copy-failed-notification" style="display: none;">
+                      <div class="small text-danger text-center font-weight-bold">
+                        ❌ Failed to copy automatically. Please use the Copy button above.
                       </div>
                     </div>
 
@@ -680,32 +736,66 @@
     }
   }
 
-  // Clipboard utility function
-  function copyToClipboard(text) {
+  // Clipboard utility function with better Safari support
+  function copyToClipboard(text, showSuccessCallback, showFailureCallback) {
+    var success = false;
+
+    // Try modern clipboard API first (works in most browsers including Safari 13.1+)
     if (navigator.clipboard && window.isSecureContext) {
-      // Use modern clipboard API if available
       navigator.clipboard.writeText(text).then(function() {
         console.log('FEN copied to clipboard: ' + text);
+        success = true;
+        if (showSuccessCallback) showSuccessCallback();
       }).catch(function(err) {
         console.error('Failed to copy FEN to clipboard: ', err);
+        // Try fallback method
+        if (copyToClipboardFallback(text)) {
+          if (showSuccessCallback) showSuccessCallback();
+        } else {
+          if (showFailureCallback) showFailureCallback();
+        }
       });
     } else {
-      // Fallback for older browsers
+      // Use fallback for older browsers or insecure contexts
+      if (copyToClipboardFallback(text)) {
+        if (showSuccessCallback) showSuccessCallback();
+      } else {
+        if (showFailureCallback) showFailureCallback();
+      }
+    }
+  }
+
+  // Fallback clipboard function for older browsers
+  function copyToClipboardFallback(text) {
+    try {
       var textArea = document.createElement('textarea');
       textArea.value = text;
       textArea.style.position = 'fixed';
       textArea.style.left = '-999999px';
       textArea.style.top = '-999999px';
+      textArea.style.opacity = '0';
       document.body.appendChild(textArea);
       textArea.focus();
       textArea.select();
-      try {
-        document.execCommand('copy');
-        console.log('FEN copied to clipboard (fallback): ' + text);
-      } catch (err) {
-        console.error('Failed to copy FEN to clipboard (fallback): ', err);
+
+      // For iOS Safari, we need to set the selection range
+      if (navigator.userAgent.match(/ipad|iphone/i)) {
+        textArea.setSelectionRange(0, 99999);
       }
+
+      var successful = document.execCommand('copy');
       document.body.removeChild(textArea);
+
+      if (successful) {
+        console.log('FEN copied to clipboard (fallback): ' + text);
+        return true;
+      } else {
+        console.error('Failed to copy FEN to clipboard (fallback)');
+        return false;
+      }
+    } catch (err) {
+      console.error('Failed to copy FEN to clipboard (fallback): ', err);
+      return false;
     }
   }
 
@@ -720,12 +810,32 @@
     // Display the hint moves
     $('#hint-moves').text(sanMoves);
 
-    // Copy FEN to clipboard if provided and show notification
+    // Handle FEN display and copying
     if (fenBeforeWrongMove && fenBeforeWrongMove.trim() !== '') {
-      copyToClipboard(fenBeforeWrongMove);
-      $('#fen-copied-notification').show();
-    } else {
+      // Show the FEN copy section
+      $('#fen-copy-section').show();
+      $('#hint-fen-display').val(fenBeforeWrongMove);
+
+      // Hide all notifications initially
       $('#fen-copied-notification').hide();
+      $('#fen-copy-failed-notification').hide();
+
+      // Try to copy automatically with callbacks
+      copyToClipboard(fenBeforeWrongMove,
+        function() {
+          // Success callback
+          $('#fen-copied-notification').show();
+        },
+        function() {
+          // Failure callback
+          $('#fen-copy-failed-notification').show();
+        }
+      );
+    } else {
+      // Hide FEN section if no FEN available
+      $('#fen-copy-section').hide();
+      $('#fen-copied-notification').hide();
+      $('#fen-copy-failed-notification').hide();
     }
 
     // Hide training session, show hint modal
@@ -738,8 +848,10 @@
     $('#hint-modal').hide();
     $('#training-session').show();
 
-    // Hide FEN copied notification
+    // Hide all FEN-related notifications and sections
+    $('#fen-copy-section').hide();
     $('#fen-copied-notification').hide();
+    $('#fen-copy-failed-notification').hide();
 
     // Unfreeze the timer
     unfreezeTimer();
@@ -913,6 +1025,36 @@
     }
   });
 
+  // handle manual FEN copy button click
+  $('#copy-fen-button').on('click', function() {
+    var fenText = $('#hint-fen-display').val();
+    if (fenText && fenText.trim() !== '') {
+      // Hide previous notifications
+      $('#fen-copied-notification').hide();
+      $('#fen-copy-failed-notification').hide();
+
+      // Try to copy with callbacks
+      copyToClipboard(fenText,
+        function() {
+          // Success callback
+          $('#fen-copied-notification').show();
+          // Hide success message after 3 seconds
+          setTimeout(function() {
+            $('#fen-copied-notification').fadeOut();
+          }, 3000);
+        },
+        function() {
+          // Failure callback
+          $('#fen-copy-failed-notification').show();
+          // Hide failure message after 5 seconds
+          setTimeout(function() {
+            $('#fen-copy-failed-notification').fadeOut();
+          }, 5000);
+        }
+      );
+    }
+  });
+
   // handle repeat training button click
   $('#repeat-training').on('click', function() {
     // Hide summary modal and show training settings
@@ -1081,8 +1223,8 @@
     updateStatus();
 
     // if training is active and game is not over, make computer move
-    if (trainingActive && !game.game_over()) {
-      setTimeout(make_move, 300); // Small delay for better UX
+    if (trainingActive) {
+      make_move(); // Small delay for better UI
     }
   }
 
