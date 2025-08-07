@@ -3,10 +3,9 @@ from flask import render_template
 from flask import request
 import os
 from engine import ChessAnalysisPool
-from utils import pgn2board, pgn2uci, sample_move, uci2board
+from utils import pgn2board, pgn2uci, sample_move
 from dotenv import load_dotenv
 import chess
-from utils import previous_move_and_uci
 from explorer import Explorer
 from judge import Judge
 
@@ -33,10 +32,7 @@ app = create_app()
 
 
 def make_move_response(
-    sample_move: str,
-    best_prev_moves: list[str],
-    prev_move_diff: float,
-    no_move_moves: bool,
+    sample_move: str, best_prev_moves: list[str], prev_move_diff: float
 ) -> dict:
     return {
         "sample_move": sample_move,
