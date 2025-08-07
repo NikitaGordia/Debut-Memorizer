@@ -37,21 +37,11 @@ class Engine(ABC):
     def __init__(self, path: str):
         self._engine = chess.engine.SimpleEngine.popen_uci(path)
 
-    def analyze(self, uci: str, time_limit: float, multi_pv: int) -> set[str]:
+    def analyze(self, uci: str, time_limit: float, multi_pv: int) -> list[dict]:
         result = self._engine.analyse(
             uci2board(uci), chess.engine.Limit(time=time_limit), multipv=multi_pv
         )
-        best_score = abs(result[0]["score"].relative.score())
-        score_range = (
-            (1 - ACCEPTABLE_SCORE_DEVIATION) * best_score,
-            (1 + ACCEPTABLE_SCORE_DEVIATION) * best_score,
-        )
-        best_moves = [
-            str(move["pv"][0])
-            for move in result
-            if score_range[0] <= abs(move["score"].relative.score()) <= score_range[1]
-        ]
-        return set(best_moves)
+        return result
 
     def __enter__(self):
         return self
@@ -93,46 +83,48 @@ class ChessAnalysisPool:
         self._futures: Dict[str, Future] = {}
         print(f"♟️ Chess Analysis Pool initialized with {num_workers} workers.")
 
+    @staticmethod
+    def job_id(cls, uci: str, multi_pv: int):
+        return f"{multi_pv}_{uci}"
+
     def _run_analysis(
         self, uci: str, engine_type: str, time_limit: float, multi_pv: int
-    ) -> List[chess.Move]:
-        book_moves = self.book.find(uci)
-
+    ) -> list[dict]:
         with make_engine(engine_type) as engine:
             engine_moves = engine.analyze(uci, time_limit, multi_pv)
-            print(
-                f"Moves (tm: {time_limit}, mpv: {multi_pv}): 🤖 {engine_moves} + 📖 {book_moves}"
-            )
-            return book_moves | engine_moves
+            print(f"Moves (tm: {time_limit}, mpv: {multi_pv}): 🤖 {engine_moves}")
+            return engine_moves
 
     def submit_job(
         self, uci: str, engine_type: str, time_limit: int, multi_pv: int
     ) -> str:
-        if uci in self._futures:
+        id = self.job_id(uci, multi_pv)
+        if id in self._futures:
             print(f"Job for {uci} already submitted. Reusing job.")
-            return uci
+            return id
         print(f"Job {uci} is submitted.")
-        future = self.executor.submit(
+        self._futures[id] = self.executor.submit(
             self._run_analysis, uci, engine_type, time_limit, multi_pv
         )
 
-        self._futures[uci] = future
+        return id
 
-    def get_result(self, uci: str) -> List[chess.Move]:
-        future = self._futures.pop(uci, None)
+    def get_result(self, uci: str, multi_pv: int) -> list[dict]:
+        id = self.job_id(uci, multi_pv)
+        future = self._futures.pop(id, None)
         if not future:
-            raise KeyError(f"Job ID '{uci}' not found or already retrieved.")
+            raise KeyError(f"Job ID '{id}' not found or already retrieved.")
 
         result = future.result()
         return result
 
     def submit_and_get(
         self, uci: str, engine_type: str, time_limit: int, multi_pv: int
-    ) -> List[chess.Move]:
-        self.submit_job(
+    ) -> list[dict]:
+        id = self.submit_job(
             uci, engine_type=engine_type, time_limit=time_limit, multi_pv=multi_pv
         )
-        return self.get_result(uci)
+        return self.get_result(id)
 
     def shutdown(self):
         print("Shutting down the thread pool. Waiting for active jobs to finish...")
