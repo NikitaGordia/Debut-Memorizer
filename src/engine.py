@@ -71,11 +71,10 @@ def make_engine(engine_type: str) -> Engine:
 
 
 class ChessAnalysisPool:
-    def __init__(self, book_path: str, num_workers: int = 2):
+    def __init__(self, num_workers: int = 2):
         if num_workers <= 0:
             raise ValueError("Number of workers must be a positive integer.")
 
-        self.book = Book(book_path)
         self.executor = ThreadPoolExecutor(
             max_workers=num_workers, thread_name_prefix="ChessWorker"
         )
@@ -84,7 +83,7 @@ class ChessAnalysisPool:
         print(f"♟️ Chess Analysis Pool initialized with {num_workers} workers.")
 
     @staticmethod
-    def job_id(cls, uci: str, multi_pv: int):
+    def job_id(uci: str, multi_pv: int):
         return f"{multi_pv}_{uci}"
 
     def _run_analysis(
@@ -109,8 +108,7 @@ class ChessAnalysisPool:
 
         return id
 
-    def get_result(self, uci: str, multi_pv: int) -> list[dict]:
-        id = self.job_id(uci, multi_pv)
+    def get_result(self, id: str) -> list[dict]:
         future = self._futures.pop(id, None)
         if not future:
             raise KeyError(f"Job ID '{id}' not found or already retrieved.")

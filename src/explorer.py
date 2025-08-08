@@ -12,7 +12,7 @@ load_dotenv()
 class Explorer:
     def __init__(self, cache_path: str, num_workers: int = 2):
         self.executor = ThreadPoolExecutor(
-            max_workers=num_workers, thread_name_prefix="ExprorerWorker"
+            max_workers=num_workers, thread_name_prefix="ExplorerWorker"
         )
         self.cache = dc.Cache(cache_path)
         self.futures = {}

@@ -7,7 +7,7 @@ from utils import pgn2board, pgn2uci, sample_move
 from dotenv import load_dotenv
 import chess
 from explorer import Explorer
-from judge import Judge
+from eval import Evaluator
 
 load_dotenv()
 
@@ -16,14 +16,12 @@ def create_app():
     app = Flask(__name__)
 
     app.pool = ChessAnalysisPool(
-        book_path=os.environ.get("BOOK_PATH"),
-        num_workers=2,
+        num_workers=6,
     )
-    app.explorer = Explorer(os.environ.get("EXPLORER_CACHE_PATH"), num_workers=2)
-    app.judge = Judge(app.pool)
+    app.explorer = Explorer(os.environ.get("EXPLORER_CACHE_PATH"), num_workers=4)
     app.MIN_OCCURRENCES = 10
     app.SAMPLE_THRESHOLD = 0.05
-    app.HINT_MULTI_PV = 3
+    app.N_HINTS = 3
 
     return app
 
@@ -42,13 +40,20 @@ def make_move_response(
 
 
 def finish_game() -> dict:
-    return make_move_response("", [], None)
+    return make_move_response(None, [], None)
 
 
-def continue_game(uci: str, engine_type: str, move_limit: int) -> dict:
-    diff = app.judge.last_move_diff(uci, engine_type, move_limit)
-    best_moves = app.pool.submit_and_get(
-        uci, engine_type, move_limit, app.HINT_MULTI_PV
+def continue_game(
+    uci: str, engine_type: str, move_limit: int, training_move: int
+) -> dict:
+    fast_move = training_move <= 1
+    evaluator = Evaluator(
+        app.pool,
+        uci,
+        engine_type,
+        move_limit,
+        n_hints=app.N_HINTS,
+        instant=not fast_move,
     )
 
     moves_dst = app.explorer.submit_and_get(uci)
@@ -62,10 +67,9 @@ def continue_game(uci: str, engine_type: str, move_limit: int) -> dict:
         print("Not enough occurrences, finishing game.")
         return finish_game()
 
-    # Hint
-    app.pool.submit_job(f"{uci} {move}", engine_type, move_limit, app.HINT_MULTI_PV)
-    # Score to compare
-    app.pool.submit_job(f"{uci} {move}", engine_type, move_limit, 1)
+    evaluator.submit_jobs_in_advance(f"{uci} {move}")
+
+    diff, best_moves = evaluator.result() if not fast_move else (None, [])
 
     return make_move_response(move, [str(move["pv"][0]) for move in best_moves], diff)
 
@@ -87,6 +91,7 @@ def make_move():
     # extract move time value
     move_time = request.form.get("move_time")
     engine_type = request.form.get("engine_type", "stockfish")
+    training_move = request.form.get("training_move", type=int)
 
     # if move time is available
     move_limit = 0.1 if move_time == "instant" else int(move_time)
@@ -97,9 +102,10 @@ def make_move():
     players_turn = orientation == board.turn
 
     if players_turn:
+        print("It's player's turn, finishing game...")
         return finish_game()
     else:
-        return continue_game(uci, engine_type, move_limit)
+        return continue_game(uci, engine_type, move_limit, training_move)
 
 
 # main driver

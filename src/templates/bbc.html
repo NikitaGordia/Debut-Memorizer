@@ -376,6 +376,16 @@
                       </select>
                     </div>
 
+                    <!-- Training Level -->
+                    <div class="control-group">
+                      <div class="control-label">Training Level</div>
+                      <select id="training_level" class="form-control">
+                        <option value="easy" selected>Easy (tolerate &lt;60 centipawns)</option>
+                        <option value="normal">Normal (tolerate &lt;30 centipawns)</option>
+                        <option value="hard">Hard (tolerate &lt;20 centipawns)</option>
+                      </select>
+                    </div>
+
                     <!-- Start Training Button -->
                     <button id="start_training" class="btn btn-success start-training-btn">
                       🚀 Start Training
@@ -408,6 +418,7 @@
                         <div>Playing as: <span id="session-orientation" class="font-weight-bold"></span></div>
                         <div>Engine: <span id="session-engine" class="font-weight-bold"></span></div>
                         <div>Move Time: <span id="session-move-time" class="font-weight-bold"></span></div>
+                        <div>Level: <span id="session-level" class="font-weight-bold"></span></div>
                       </div>
                     </div>
 
@@ -496,6 +507,7 @@
                         <div>Duration: <span id="summary-duration" class="font-weight-bold"></span></div>
                         <div>Engine: <span id="summary-engine-used" class="font-weight-bold"></span></div>
                         <div>Playing as: <span id="summary-orientation-used" class="font-weight-bold"></span></div>
+                        <div>Level: <span id="summary-level-used" class="font-weight-bold"></span></div>
                       </div>
                     </div>
 
@@ -547,32 +559,59 @@
       }, function(data) {
         // Hide progress overlay
         hideProgress();
-        // if training is active, check continue flag first
-        if (trainingActive && data.continue === false) {
-          // Check if there are hint moves to show
-          if (data.best_move && data.best_move.trim() !== '') {
-            // Show hint with the optimal moves (don't execute the move)
-            showHint(data.best_move, data.fen_before_wrong_move);
-            return; // Exit early, don't update board
-          } else {
-            // No hints available, apply penalty and restart
-            remainingTime = Math.max(0, remainingTime - 30);
-            updateTimerDisplay();
 
-            // If time runs out due to penalty, stop training
-            if (remainingTime <= 0) {
-              stopTraining('Time is up!', 'timeout');
+        // Handle new response structure with sample_move, prev_move_diff, best_prev_moves
+        if (trainingActive) {
+          // Scenario 1: sample_move is None - restart training without penalty
+          if (!data.sample_move) {
+            console.log('No sample move available, restarting training round');
+            restartTrainingRound();
+            return;
+          }
+
+          // Scenario 2: sample_move is not None - check prev_move_diff against level tolerance
+          if (data.prev_move_diff !== null && data.prev_move_diff !== undefined) {
+            // Get tolerance threshold based on training level
+            var toleranceThreshold;
+            if (trainingParams.level === 'easy') {
+              toleranceThreshold = 60;
+            } else if (trainingParams.level === 'normal') {
+              toleranceThreshold = 30;
+            } else if (trainingParams.level === 'hard') {
+              toleranceThreshold = 20;
             } else {
-              // Otherwise restart the training round
-              restartTrainingRound();
+              toleranceThreshold = 30; // default to normal
             }
-            return; // Exit early, don't update board
+
+            // Check if move quality exceeds tolerance
+            if (data.prev_move_diff > toleranceThreshold) {
+              // Move quality is not good enough - show hint with penalty
+              console.log('Move quality exceeded tolerance (' + data.prev_move_diff + ' > ' + toleranceThreshold + '), showing hint');
+              if (data.best_prev_moves && data.best_prev_moves.trim() !== '') {
+                showHint(data.best_prev_moves, data.fen_before_wrong_move);
+                return; // Exit early, don't update board
+              } else {
+                // No hints available, apply penalty and restart
+                remainingTime = Math.max(0, remainingTime - 30);
+                updateTimerDisplay();
+
+                // If time runs out due to penalty, stop training
+                if (remainingTime <= 0) {
+                  stopTraining('Time is up!', 'timeout');
+                } else {
+                  // Otherwise restart the training round
+                  restartTrainingRound();
+                }
+                return; // Exit early, don't update board
+              }
+            }
+            // If we reach here, move quality is acceptable - continue game
           }
         }
 
-        // load fen into the current board state (only if continuing)
-        if ('best_move' in data && data.best_move.trim() !== '') {
-          game.move(data.best_move, { sloppy: true })
+        // Execute the sample move (bot's next move)
+        if (data.sample_move && data.sample_move.trim() !== '') {
+          game.move(data.sample_move, { sloppy: true })
         }
         // update board position
         board.position(game.fen());
@@ -580,9 +619,9 @@
         // update game status
         updateStatus();
 
-        // if training is active and continuing, increment moves counter
-        if (trainingActive && data.continue !== false) {
-          // Increment moves passed counter
+        // if training is active and we executed a move, increment moves counter
+        if (trainingActive && data.sample_move) {
+          // Increment moves passed counter (only if this was a successful move)
           if (trainingMove > 1) {
             movesPassed++;
             $('#moves-passed').text(movesPassed);
@@ -992,6 +1031,16 @@
     $('#summary-duration').text(duration);
     $('#summary-engine-used').text(trainingParams.engine === 'stockfish' ? 'Stockfish' : 'Leela Chess Zero');
     $('#summary-orientation-used').text(trainingParams.orientation ? trainingParams.orientation.charAt(0).toUpperCase() + trainingParams.orientation.slice(1) : 'Unknown');
+    // Format level display for summary
+    var summaryLevelDisplay = 'Unknown';
+    if (trainingParams.level === 'easy') {
+      summaryLevelDisplay = 'Easy (<60 cp)';
+    } else if (trainingParams.level === 'normal') {
+      summaryLevelDisplay = 'Normal (<30 cp)';
+    } else if (trainingParams.level === 'hard') {
+      summaryLevelDisplay = 'Hard (<20 cp)';
+    }
+    $('#summary-level-used').text(summaryLevelDisplay);
   }
 
   // handle orientation toggle
@@ -1067,6 +1116,7 @@
       $('input[name="orientation"][value="' + trainingParams.orientation + '"]').prop('checked', true);
       $('#move_time').val(trainingParams.moveTime);
       $('#engine').val(trainingParams.engine);
+      $('#training_level').val(trainingParams.level);
 
       // Trigger the start training button click
       setTimeout(function() {
@@ -1090,7 +1140,8 @@
       var selectedOrientation = $('input[name="orientation"]:checked').val();
       var moveTime = $('#move_time option:selected').val();
       var engine = $('#engine option:selected').val();
-      
+      var level = $('#training_level option:selected').val();
+
         // Validate that it's the bot's turn to move
       var isPlayerWhite = selectedOrientation === 'white';
       var isWhiteToMove = game.turn() === 'w';
@@ -1106,7 +1157,8 @@
         orientation: selectedOrientation,
         startingPgn: game.pgn(),
         moveTime: moveTime,
-        engine: engine
+        engine: engine,
+        level: level
       };
 
       // Start training
@@ -1132,6 +1184,16 @@
         moveTimeDisplay = moveTime + ' sec';
       }
       $('#session-move-time').text(moveTimeDisplay);
+      // Format level display
+      var levelDisplay;
+      if (level === 'easy') {
+        levelDisplay = 'Easy (<60 cp)';
+      } else if (level === 'normal') {
+        levelDisplay = 'Normal (<30 cp)';
+      } else if (level === 'hard') {
+        levelDisplay = 'Hard (<20 cp)';
+      }
+      $('#session-level').text(levelDisplay);
       $('#moves-passed').text(movesPassed);
 
       // Set board orientation
