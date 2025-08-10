@@ -569,7 +569,9 @@
               // Move quality is not good enough - show hint with penalty
               console.log('Move quality exceeded tolerance (' + data.prev_move_diff + ' > ' + toleranceThreshold + '), showing hint');
               if (data.best_prev_moves && data.best_prev_moves.trim() !== '') {
-                showHint(data.best_prev_moves, data.fen_before_wrong_move); //TODO check what fen_before_wrong_move does
+                // Generate FEN from current game state by removing the last (wrong) move
+                var fenBeforeWrongMove = generateFenBeforeLastMove();
+                showHint(data.best_prev_moves, fenBeforeWrongMove);
                 return; // Exit early, don't update board
               } else {
                 // No hints available, apply penalty and restart
@@ -823,6 +825,44 @@
     } catch (err) {
       console.error('Failed to copy FEN to clipboard (fallback): ', err);
       return false;
+    }
+  }
+
+  // Function to generate FEN before the last (wrong) move
+  function generateFenBeforeLastMove() {
+    try {
+      // Create a temporary game instance
+      var tempGame = new Chess();
+
+      // Load the current game's PGN
+      var currentPgn = game.pgn();
+
+      if (!currentPgn || currentPgn.trim() === '') {
+        // If no moves have been made, return starting position FEN
+        return 'rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1';
+      }
+
+      // Load the PGN into the temporary game
+      tempGame.load_pgn(currentPgn);
+
+      // Get the move history
+      var history = tempGame.history();
+
+      if (history.length === 0) {
+        // No moves in history, return starting position FEN
+        return 'rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1';
+      }
+
+      // Undo the last move to get the position before the wrong move
+      tempGame.undo();
+
+      // Return the FEN of this position
+      return tempGame.fen();
+
+    } catch (error) {
+      console.error('Error generating FEN before last move:', error);
+      // Return starting position as fallback
+      return 'rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1';
     }
   }
 
