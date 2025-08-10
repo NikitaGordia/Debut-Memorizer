@@ -8,9 +8,9 @@ from typing import Generator, Tuple, List
 from functools import partial
 from datetime import datetime
 
-from .models import Game
-from . import add_games
-from src.utils import game2uci, game2pgn
+from dmemo.db.models import Game
+from dmemo.db.crud import add_games
+from utils import game2uci, game2pgn
 
 DB_BATCH_SIZE = 1_000_000
 CHUNK_SIZE = 10_000_000

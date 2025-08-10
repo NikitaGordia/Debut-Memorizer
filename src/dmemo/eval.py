@@ -1,6 +1,6 @@
 from typing import Tuple
-from utils import previous_move_and_uci, uci2board
-from engine import ChessAnalysisPool
+from dmemo.utils import previous_move_and_uci, uci2board
+from dmemo.engine import ChessAnalysisPool
 
 
 class Evaluator:

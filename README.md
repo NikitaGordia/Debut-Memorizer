@@ -80,10 +80,10 @@ Debut-Memorizer creates an immersive chess training experience by:
    unzstd lichess_db_standard_rated_YYYY-MM.pgn.bz2
    ```
 
-7. **Import Lichess games**
+7. **Ingest Lichess games**
    ```bash
    cd src
-   python -m db.import --total=N /path/to/tolichess_db_standard_rated_YYYY-MM.pgn
+   python -m db.ingest --total=N /path/to/tolichess_db_standard_rated_YYYY-MM.pgn
    ```
 
 8. **Cache move distributions with `explorer.py`**

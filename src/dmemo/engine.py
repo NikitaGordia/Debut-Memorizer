@@ -1,15 +1,13 @@
 import chess
 import chess.engine
 from concurrent.futures import ThreadPoolExecutor, Future
-from typing import Dict, List
-from utils import uci2board
+from typing import Dict
+from dmemo.utils import uci2board
 from abc import ABC
 from dotenv import load_dotenv
 import os
 
 load_dotenv()
-
-ACCEPTABLE_SCORE_DEVIATION = 0.2
 
 
 class Book:

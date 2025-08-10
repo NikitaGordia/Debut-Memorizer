@@ -1,10 +1,10 @@
 import argparse
-import db
 import diskcache as dc
 import tqdm
 from concurrent.futures import ThreadPoolExecutor
 from dotenv import load_dotenv
 import os
+from dmemo.db import crud
 
 load_dotenv()
 
@@ -20,7 +20,7 @@ class Explorer:
     def _explore(self, uci):
         if uci in self.cache:
             return self.cache[uci]
-        moves = db.get_next_move_distribution(uci)
+        moves = crud.get_next_move_distribution(uci)
         self.cache[uci] = moves
         return moves
 

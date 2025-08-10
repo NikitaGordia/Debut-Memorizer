@@ -1,33 +1,22 @@
-import os
-from dotenv import load_dotenv
-from sqlalchemy import create_engine, func, desc
-from sqlalchemy.orm import sessionmaker
-from db.models import Game, Base
-
-load_dotenv()
-
-DATABASE_URL = f"postgresql://{os.environ.get('POSTGRES_USER')}:{os.environ.get('POSTGRES_PASSWORD')}@localhost:5432/{os.environ.get('POSTGRES_DB')}"
-
-engine = create_engine(DATABASE_URL)
-Base.metadata.create_all(engine)
-
-Session = sessionmaker(bind=engine)
+from sqlalchemy import func, desc
+from dmemo.db.models import Game
+from dmemo.db.session import make_session
 
 
 def add_game(game: Game):
-    with Session() as session:
+    with make_session() as session:
         session.add(game)
         session.commit()
 
 
 def add_games(games: list[Game]):
-    with Session() as session:
+    with make_session() as session:
         session.add_all(games)
         session.commit()
 
 
 def get_next_move_distribution(opening_uci: str) -> dict[str, int]:
-    with Session() as session:
+    with make_session() as session:
         opening_uci = opening_uci.strip()
 
         num_opening_moves = len(opening_uci.split()) if opening_uci else 0
