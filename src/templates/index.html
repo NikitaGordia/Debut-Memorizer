@@ -113,7 +113,6 @@
 
       .board-disabled {
         pointer-events: none;
-        opacity: 0.6;
       }
 
       /* Mobile responsiveness - Force stacking on small screens */
@@ -524,6 +523,7 @@
 </html>
 
 <script>
+  let currentMoveRequest = null;
   // make computer move
   function make_move() {
     trainingMove++;
@@ -537,7 +537,7 @@
     showProgress(moveTime);
 
     // make HTTP POST request to make move API
-    $.post('/make_move',{
+    currentMoveRequest = $.post('/make_move',{
         'pgn': game.pgn(),
         'move_time': moveTime,
         'engine_type': engineType,
@@ -549,12 +549,6 @@
 
         // Handle new response structure with sample_move, prev_move_diff, best_prev_moves
         if (trainingActive) {
-          // Scenario 1: sample_move is None - restart training without penalty
-          if (!data.sample_move) {
-            console.log('No sample move available, restarting training round');
-            restartTrainingRound();
-            return;
-          }
 
           // Scenario 2: sample_move is not None - check prev_move_diff against level tolerance
           if (data.prev_move_diff !== null && data.prev_move_diff !== undefined) {
@@ -575,7 +569,7 @@
               // Move quality is not good enough - show hint with penalty
               console.log('Move quality exceeded tolerance (' + data.prev_move_diff + ' > ' + toleranceThreshold + '), showing hint');
               if (data.best_prev_moves && data.best_prev_moves.trim() !== '') {
-                showHint(data.best_prev_moves, data.fen_before_wrong_move);
+                showHint(data.best_prev_moves, data.fen_before_wrong_move); //TODO check what fen_before_wrong_move does
                 return; // Exit early, don't update board
               } else {
                 // No hints available, apply penalty and restart
@@ -593,6 +587,12 @@
               }
             }
             // If we reach here, move quality is acceptable - continue game
+          }
+          // Scenario 1: sample_move is None - restart training without penalty
+          if (!data.sample_move) {
+            console.log('No sample move available, restarting training round');
+            restartTrainingRound();
+            return;
           }
         }
 
@@ -708,6 +708,7 @@
     } else {
       progressDuration = parseInt(moveTime) * 1000; // Convert seconds to milliseconds
     }
+    progressDuration += 300;
 
     // Show progress indicator and disable board
     $('#progress-indicator').show();
@@ -956,6 +957,11 @@
   }
 
   function stopTraining(message, endReason) {
+    hideProgress();
+    if (currentMoveRequest) {
+      currentMoveRequest.abort();
+      currentMoveRequest = null;
+    }
     trainingActive = false;
     stopTimer();
 

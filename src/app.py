@@ -57,27 +57,29 @@ def continue_game(
     )
 
     moves_dst = app.explorer.submit_and_get(uci)
+
+    diff, best_moves = evaluator.result() if not fast_move else (None, [])
+    best_moves_str = [str(move["pv"][0]) for move in best_moves]
+
     if len(moves_dst) == 0:
         print("No moves found, finishing game.")
-        return finish_game()
+        return make_move_response(None, best_moves_str, diff)
 
     move, occurrences = sample_move(moves_dst, threshold=app.SAMPLE_THRESHOLD)
     print(f"🧭 Explorer move: {move}, occurrences: {occurrences}")
     if occurrences < app.MIN_OCCURRENCES:
         print("Not enough occurrences, finishing game.")
-        return finish_game()
+        return make_move_response(None, best_moves_str, diff)
 
     evaluator.submit_jobs_in_advance(f"{uci} {move}")
 
-    diff, best_moves = evaluator.result() if not fast_move else (None, [])
-
-    return make_move_response(move, [str(move["pv"][0]) for move in best_moves], diff)
+    return make_move_response(move, best_moves_str, diff)
 
 
 # root(index) route
 @app.route("/")
 def root():
-    return render_template("bbc.html")
+    return render_template("index.html")
 
 
 # make move API

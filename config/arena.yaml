@@ -1,0 +1,44 @@
+# ---------------------------------------------------------------------------
+# Configuration for Multi-Engine Elo Rating Benchmark
+# ---------------------------------------------------------------------------
+
+tournament_options:
+  concurrency: 3   
+  total_games: 20
+  k_factor: 32  
+  initial_elo: 1200
+
+# ---------------------------------------------------------------------------
+# Define the players to be benchmarked.
+# Each player now has its own 'engine'.
+# ---------------------------------------------------------------------------
+players:
+  - name: "Stockfish-1s"
+    engine: "stockfish"
+    time_limit: 5
+
+  # - name: "Stockfish-1s"
+  #   engine: "stockfish"
+  #   time_limit: 1.0
+
+  # - name: "Stockfish-3s"
+  #   engine: "stockfish"
+  #   time_limit: 3.0
+
+  # - name: "Stockfish-5s"
+  #   engine: "stockfish"
+  #   time_limit: 5.0
+
+  - name: "Lc0-1s"
+    engine: "lczero"
+    options:
+      WeightsFile: "/home/lab/lc0/weights/BT4-1740.pb.gz"
+    time_limit: 5
+
+  # - name: "Stockfish-30s"
+  #   engine: "stockfish"
+  #   time_limit: 30.0
+
+  # - name: "Stockfish-60s"
+  #   engine: "stockfish"
+  #   time_limit: 60.0
