@@ -366,9 +366,7 @@
                     <div class="control-group">
                       <div class="control-label">Training Level</div>
                       <select id="training_level" class="form-control">
-                        <option value="easy" selected>Easy (tolerate &lt;60 centipawns)</option>
-                        <option value="normal">Normal (tolerate &lt;30 centipawns)</option>
-                        <option value="hard">Hard (tolerate &lt;20 centipawns)</option>
+                        <!-- Options will be populated dynamically using getLevelDisplayName -->
                       </select>
                     </div>
 
@@ -525,9 +523,9 @@
 <script>
   // Centralized training level configuration
   const TRAINING_LEVELS = {
-    easy: { tolerance: -60, displayName: 'Easy (>-60 cp)' },
-    normal: { tolerance: -30, displayName: 'Normal (>-30 cp)' },
-    hard: { tolerance: -20, displayName: 'Hard (>-20 cp)' }
+    easy: { tolerance: -60, displayName: 'Easy (<60 centipawns lost)' },
+    normal: { tolerance: -30, displayName: 'Normal (<30 centipawns lost)' },
+    hard: { tolerance: -20, displayName: 'Hard (<20 centipawns lost)' }
   };
 
   // Helper function to get tolerance for a level
@@ -551,6 +549,25 @@
     return bestMoves.filter(function(moveData) {
       var moveDiff = moveData[1]; // The second element is the difference
       return moveDiff >= toleranceThreshold;
+    });
+  }
+
+  // Populate training level options dynamically
+  function populateTrainingLevelOptions() {
+    var select = $('#training_level');
+    select.empty(); // Clear existing options
+
+    Object.keys(TRAINING_LEVELS).forEach(function(level) {
+      var option = $('<option></option>')
+        .attr('value', level)
+        .text(getLevelDisplayName(level));
+
+      // Set easy as default selected
+      if (level === 'easy') {
+        option.attr('selected', true);
+      }
+
+      select.append(option);
     });
   }
 
@@ -1034,9 +1051,6 @@
           if (move) {
             // Include the evaluation difference in the display
             var displayText = move.san;
-            if (moveDiff !== 0) {
-              displayText += ' (' + (moveDiff > 0 ? '+' : '') + moveDiff + ')';
-            }
             sanMoves.push(displayText);
           } else {
             sanMoves.push(uciMove + ' (' + (moveDiff > 0 ? '+' : '') + moveDiff + ')'); // Fallback to UCI if conversion fails
@@ -1445,7 +1459,10 @@
   
   // create chess board widget instance
   board = Chessboard('chess_board', config)
-  
+
+  // populate training level options using centralized configuration
+  populateTrainingLevelOptions();
+
   // prevent scrolling on touch devices
   $('#chess_board').on('scroll touchmove touchend touchstart contextmenu', function(e) {
     e.preventDefault();
