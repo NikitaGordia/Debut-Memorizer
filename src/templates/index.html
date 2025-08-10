@@ -525,9 +525,9 @@
 <script>
   // Centralized training level configuration
   const TRAINING_LEVELS = {
-    easy: { tolerance: 60, displayName: 'Easy (<60 cp)' },
-    normal: { tolerance: 30, displayName: 'Normal (<30 cp)' },
-    hard: { tolerance: 20, displayName: 'Hard (<20 cp)' }
+    easy: { tolerance: -60, displayName: 'Easy (>-60 cp)' },
+    normal: { tolerance: -30, displayName: 'Normal (>-30 cp)' },
+    hard: { tolerance: -20, displayName: 'Hard (>-20 cp)' }
   };
 
   // Helper function to get tolerance for a level
@@ -538,6 +538,20 @@
   // Helper function to get display name for a level
   function getLevelDisplayName(level) {
     return TRAINING_LEVELS[level]?.displayName || TRAINING_LEVELS.normal.displayName;
+  }
+
+  // Filter moves based on tolerance level
+  function filterMovesByTolerance(bestMoves, toleranceThreshold) {
+    if (!bestMoves || bestMoves.length === 0) {
+      return [];
+    }
+
+    // Filter moves that are better than or equal to the tolerance threshold
+    // Since we're dealing with negative values, moves >= threshold are acceptable
+    return bestMoves.filter(function(moveData) {
+      var moveDiff = moveData[1]; // The second element is the difference
+      return moveDiff >= toleranceThreshold;
+    });
   }
 
   let currentMoveRequest = null;
@@ -572,15 +586,20 @@
             // Get tolerance threshold based on training level
             var toleranceThreshold = getTolerance(trainingParams.level);
 
-            // Check if move quality exceeds tolerance
-            if (data.prev_move_diff > toleranceThreshold) {
+            // Check if move quality exceeds tolerance (worse than threshold)
+            if (data.prev_move_diff < toleranceThreshold) {
               // Move quality is not good enough - show hint with penalty
-              console.log('Move quality exceeded tolerance (' + data.prev_move_diff + ' > ' + toleranceThreshold + '), showing hint');
-              if (data.best_prev_moves && data.best_prev_moves.trim() !== '') {
-                // Generate FEN from current game state by removing the last (wrong) move
-                var fenBeforeWrongMove = generateFenBeforeLastMove();
-                showHint(data.best_prev_moves, fenBeforeWrongMove);
-                return; // Exit early, don't update board
+              console.log('Move quality exceeded tolerance (' + data.prev_move_diff + ' < ' + toleranceThreshold + '), showing hint');
+              if (data.best_prev_moves && data.best_prev_moves.length > 0) {
+                // Filter moves based on game level tolerance
+                var filteredMoves = filterMovesByTolerance(data.best_prev_moves, toleranceThreshold);
+
+                if (filteredMoves.length > 0) {
+                  // Generate FEN from current game state by removing the last (wrong) move
+                  var fenBeforeWrongMove = generateFenBeforeLastMove();
+                  showHint(filteredMoves, fenBeforeWrongMove);
+                  return; // Exit early, don't update board
+                }
               } else {
                 // No hints available, apply penalty and restart
                 remainingTime = Math.max(0, remainingTime - 30);
@@ -623,8 +642,11 @@
             // Get tolerance threshold based on training level
             var toleranceThreshold = getTolerance(trainingParams.level);
 
-            // Calculate score using formula: tolerance - diff
-            var moveScore = Math.max(0, toleranceThreshold - data.prev_move_diff);
+            // Calculate score using formula: t - diff where t is tolerance (absolute value)
+            // Convert tolerance to positive value for scoring calculation
+            var toleranceValue = Math.abs(toleranceThreshold);
+            var diffValue = Math.abs(data.prev_move_diff);
+            var moveScore = Math.max(0, toleranceValue - diffValue);
             accumulatedScore += moveScore;
             $('#score-display').text(accumulatedScore);
           }
@@ -880,12 +902,12 @@
   }
 
   // Hint handling functions
-  function showHint(hintMovesUci, fenBeforeWrongMove) {
+  function showHint(hintMovesArray, fenBeforeWrongMove) {
     // Freeze the timer
     freezeTimer();
 
     // Convert UCI moves to SAN format for display
-    var sanMoves = convertUciToSan(hintMovesUci);
+    var sanMoves = convertMovesArrayToSan(hintMovesArray);
 
     // Display the hint moves
     $('#hint-moves').text(sanMoves);
@@ -983,6 +1005,57 @@
     }
 
     return sanMoves.length > 0 ? sanMoves.join(', ') : uciMoves.join(', ');
+  }
+
+  function convertMovesArrayToSan(movesArray) {
+    if (!movesArray || movesArray.length === 0) {
+      return 'No moves available';
+    }
+
+    var sanMoves = [];
+
+    try {
+      // Convert each UCI move to SAN
+      for (var i = 0; i < movesArray.length; i++) {
+        try {
+          var moveData = movesArray[i];
+          var uciMove = moveData[0]; // First element is the UCI move
+          var moveDiff = moveData[1]; // Second element is the difference
+
+          var tempGame = new Chess();
+          tempGame.load_pgn(game.pgn());
+
+          // Go back one move to get the position before the player's move
+          var history = tempGame.history();
+          if (history.length > 0) {
+            tempGame.undo();
+          }
+          var move = tempGame.move(uciMove, { sloppy: true });
+          if (move) {
+            // Include the evaluation difference in the display
+            var displayText = move.san;
+            if (moveDiff !== 0) {
+              displayText += ' (' + (moveDiff > 0 ? '+' : '') + moveDiff + ')';
+            }
+            sanMoves.push(displayText);
+          } else {
+            sanMoves.push(uciMove + ' (' + (moveDiff > 0 ? '+' : '') + moveDiff + ')'); // Fallback to UCI if conversion fails
+          }
+        } catch (e) {
+          console.log('Error converting UCI move:', movesArray[i], e);
+          var moveData = movesArray[i];
+          sanMoves.push(moveData[0] + ' (' + (moveData[1] > 0 ? '+' : '') + moveData[1] + ')'); // Fallback to UCI if conversion fails
+        }
+      }
+    } catch (e) {
+      console.log('Error setting up temporary game:', e);
+      // If we can't set up the game, just return the UCI moves with their diffs
+      return movesArray.map(function(moveData) {
+        return moveData[0] + ' (' + (moveData[1] > 0 ? '+' : '') + moveData[1] + ')';
+      }).join(', ');
+    }
+
+    return sanMoves.length > 0 ? sanMoves.join(', ') : 'No moves available';
   }
 
   function restartTrainingRound(makeFirstMove = true) {

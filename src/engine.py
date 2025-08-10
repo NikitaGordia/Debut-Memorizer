@@ -91,7 +91,6 @@ class ChessAnalysisPool:
     ) -> list[dict]:
         with make_engine(engine_type) as engine:
             engine_moves = engine.analyze(uci, time_limit, multi_pv)
-            print(f"Moves (tm: {time_limit}, mpv: {multi_pv}): 🤖 {engine_moves}")
             return engine_moves
 
     def submit_job(

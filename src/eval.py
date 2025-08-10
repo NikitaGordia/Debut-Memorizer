@@ -20,7 +20,7 @@ class Evaluator:
         self.n_hints = n_hints
 
         _, self.prev_uci = previous_move_and_uci(uci)
-        self.pov = uci2board(uci).turn
+        self.pov = uci2board(self.prev_uci).turn
 
         self.ids = []
 
@@ -47,7 +47,7 @@ class Evaluator:
         )
         self.ids = (best_moves_id, prev_id, curr_id)
 
-    def result(self) -> Tuple[float, list[dict]]:
+    def result(self) -> Tuple[float, list[tuple[str, float]]]:
         best_moves_id, prev_id, curr_id = self.ids
         prev_state = self.pool.get_result(prev_id)
         curr_state = self.pool.get_result(curr_id)
@@ -57,4 +57,12 @@ class Evaluator:
 
         best_moves = self.pool.get_result(best_moves_id)
 
-        return abs(curr_score - prev_score), best_moves
+        best_moves = [
+            (
+                str(move["pv"][0]),
+                min(move["score"].pov(self.pov).score() - prev_score, 0),
+            )
+            for move in best_moves
+        ]
+
+        return min(curr_score - prev_score, 0), best_moves

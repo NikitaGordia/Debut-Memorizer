@@ -30,11 +30,11 @@ app = create_app()
 
 
 def make_move_response(
-    sample_move: str, best_prev_moves: list[str], prev_move_diff: float
+    sample_move: str, best_prev_moves: list[tuple[str, float]], prev_move_diff: float
 ) -> dict:
     return {
         "sample_move": sample_move,
-        "best_prev_moves": " ".join(best_prev_moves),
+        "best_prev_moves": best_prev_moves,
         "prev_move_diff": prev_move_diff,
     }
 
@@ -59,21 +59,20 @@ def continue_game(
     moves_dst = app.explorer.submit_and_get(uci)
 
     diff, best_moves = evaluator.result() if not fast_move else (None, [])
-    best_moves_str = [str(move["pv"][0]) for move in best_moves]
 
     if len(moves_dst) == 0:
         print("No moves found, finishing game.")
-        return make_move_response(None, best_moves_str, diff)
+        return make_move_response(None, best_moves, diff)
 
     move, occurrences = sample_move(moves_dst, threshold=app.SAMPLE_THRESHOLD)
     print(f"🧭 Explorer move: {move}, occurrences: {occurrences}")
     if occurrences < app.MIN_OCCURRENCES:
         print("Not enough occurrences, finishing game.")
-        return make_move_response(None, best_moves_str, diff)
+        return make_move_response(None, best_moves, diff)
 
     evaluator.submit_jobs_in_advance(f"{uci} {move}")
 
-    return make_move_response(move, best_moves_str, diff)
+    return make_move_response(move, best_moves, diff)
 
 
 # root(index) route
