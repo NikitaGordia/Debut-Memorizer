@@ -392,8 +392,8 @@
                       </div>
                       <div class="col-6">
                         <div class="text-center">
-                          <div class="control-label">Moves Passed</div>
-                          <div id="moves-passed" class="h4 text-success">0</div>
+                          <div class="control-label">Score</div>
+                          <div id="score-display" class="h4 text-success">0</div>
                         </div>
                       </div>
                     </div>
@@ -476,8 +476,8 @@
 
                     <div class="mb-3">
                       <div class="text-center">
-                        <div class="control-label">Moves Passed</div>
-                        <div id="summary-moves-passed" class="h4 text-success">0</div>
+                        <div class="control-label">Score</div>
+                        <div id="summary-score" class="h4 text-success">0</div>
                       </div>
                     </div>
 
@@ -523,6 +523,23 @@
 </html>
 
 <script>
+  // Centralized training level configuration
+  const TRAINING_LEVELS = {
+    easy: { tolerance: 60, displayName: 'Easy (<60 cp)' },
+    normal: { tolerance: 30, displayName: 'Normal (<30 cp)' },
+    hard: { tolerance: 20, displayName: 'Hard (<20 cp)' }
+  };
+
+  // Helper function to get tolerance for a level
+  function getTolerance(level) {
+    return TRAINING_LEVELS[level]?.tolerance || TRAINING_LEVELS.normal.tolerance;
+  }
+
+  // Helper function to get display name for a level
+  function getLevelDisplayName(level) {
+    return TRAINING_LEVELS[level]?.displayName || TRAINING_LEVELS.normal.displayName;
+  }
+
   let currentMoveRequest = null;
   // make computer move
   function make_move() {
@@ -553,16 +570,7 @@
           // Scenario 2: sample_move is not None - check prev_move_diff against level tolerance
           if (data.prev_move_diff !== null && data.prev_move_diff !== undefined) {
             // Get tolerance threshold based on training level
-            var toleranceThreshold;
-            if (trainingParams.level === 'easy') {
-              toleranceThreshold = 60;
-            } else if (trainingParams.level === 'normal') {
-              toleranceThreshold = 30;
-            } else if (trainingParams.level === 'hard') {
-              toleranceThreshold = 20;
-            } else {
-              toleranceThreshold = 30; // default to normal
-            }
+            var toleranceThreshold = getTolerance(trainingParams.level);
 
             // Check if move quality exceeds tolerance
             if (data.prev_move_diff > toleranceThreshold) {
@@ -608,12 +616,17 @@
         // update game status
         updateStatus();
 
-        // if training is active and we executed a move, increment moves counter
+        // if training is active and we executed a move, calculate score
         if (trainingActive && data.sample_move) {
-          // Increment moves passed counter (only if this was a successful move)
-          if (trainingMove > 1) {
-            movesPassed++;
-            $('#moves-passed').text(movesPassed);
+          // Calculate score based on tolerance and evaluation difference (only if this was a successful move)
+          if (trainingMove > 1 && data.prev_move_diff !== null && data.prev_move_diff !== undefined) {
+            // Get tolerance threshold based on training level
+            var toleranceThreshold = getTolerance(trainingParams.level);
+
+            // Calculate score using formula: tolerance - diff
+            var moveScore = Math.max(0, toleranceThreshold - data.prev_move_diff);
+            accumulatedScore += moveScore;
+            $('#score-display').text(accumulatedScore);
           }
         }
     }).fail(function() {
@@ -630,7 +643,7 @@
   var trainingParams = {};
   var trainingTimer = null;
   var remainingTime = 300; // 5 minutes in seconds
-  var movesPassed = 0;
+  var accumulatedScore = 0;
   var trainingMove = 0;
   var trainingStartTime = null;
   var trainingEndReason = null;
@@ -1059,20 +1072,13 @@
     }
 
     // Update summary display
-    $('#summary-moves-passed').text(movesPassed);
+    $('#summary-score').text(accumulatedScore);
     $('#summary-end-reason').text(endReasonDisplay);
     $('#summary-duration').text(duration);
     $('#summary-engine-used').text(trainingParams.engine === 'stockfish' ? 'Stockfish' : 'Leela Chess Zero');
     $('#summary-orientation-used').text(trainingParams.orientation ? trainingParams.orientation.charAt(0).toUpperCase() + trainingParams.orientation.slice(1) : 'Unknown');
     // Format level display for summary
-    var summaryLevelDisplay = 'Unknown';
-    if (trainingParams.level === 'easy') {
-      summaryLevelDisplay = 'Easy (<60 cp)';
-    } else if (trainingParams.level === 'normal') {
-      summaryLevelDisplay = 'Normal (<30 cp)';
-    } else if (trainingParams.level === 'hard') {
-      summaryLevelDisplay = 'Hard (<20 cp)';
-    }
+    var summaryLevelDisplay = getLevelDisplayName(trainingParams.level) || 'Unknown';
     $('#summary-level-used').text(summaryLevelDisplay);
   }
 
@@ -1195,7 +1201,7 @@
 
       // Start training
       trainingActive = true;
-      movesPassed = 0;
+      accumulatedScore = 0;
       trainingStartTime = new Date();
       resetTimer();
 
@@ -1217,16 +1223,9 @@
       }
       $('#session-move-time').text(moveTimeDisplay);
       // Format level display
-      var levelDisplay;
-      if (level === 'easy') {
-        levelDisplay = 'Easy (<60 cp)';
-      } else if (level === 'normal') {
-        levelDisplay = 'Normal (<30 cp)';
-      } else if (level === 'hard') {
-        levelDisplay = 'Hard (<20 cp)';
-      }
+      var levelDisplay = getLevelDisplayName(level);
       $('#session-level').text(levelDisplay);
-      $('#moves-passed').text(movesPassed);
+      $('#score-display').text(accumulatedScore);
 
       // Set board orientation
       board.orientation(selectedOrientation);
