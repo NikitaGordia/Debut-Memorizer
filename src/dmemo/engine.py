@@ -1,11 +1,14 @@
+from abc import ABC
+from concurrent.futures import Future
+from concurrent.futures import ThreadPoolExecutor
+import os
+from typing import Dict
+
 import chess
 import chess.engine
-from concurrent.futures import ThreadPoolExecutor, Future
-from typing import Dict
-from dmemo.utils import uci2board
-from abc import ABC
 from dotenv import load_dotenv
-import os
+
+from dmemo.utils import uci2board
 
 load_dotenv()
 
@@ -36,9 +39,7 @@ class Engine(ABC):
         self._engine = chess.engine.SimpleEngine.popen_uci(path)
 
     def analyze(self, uci: str, time_limit: float, multi_pv: int) -> list[dict]:
-        result = self._engine.analyse(
-            uci2board(uci), chess.engine.Limit(time=time_limit), multipv=multi_pv
-        )
+        result = self._engine.analyse(uci2board(uci), chess.engine.Limit(time=time_limit), multipv=multi_pv)
         return result
 
     def __enter__(self):
@@ -73,9 +74,7 @@ class ChessAnalysisPool:
         if num_workers <= 0:
             raise ValueError("Number of workers must be a positive integer.")
 
-        self.executor = ThreadPoolExecutor(
-            max_workers=num_workers, thread_name_prefix="ChessWorker"
-        )
+        self.executor = ThreadPoolExecutor(max_workers=num_workers, thread_name_prefix="ChessWorker")
 
         self._futures: Dict[str, Future] = {}
         print(f"♟️ Chess Analysis Pool initialized with {num_workers} workers.")
@@ -84,24 +83,18 @@ class ChessAnalysisPool:
     def job_id(uci: str, multi_pv: int):
         return f"{multi_pv}_{uci}"
 
-    def _run_analysis(
-        self, uci: str, engine_type: str, time_limit: float, multi_pv: int
-    ) -> list[dict]:
+    def _run_analysis(self, uci: str, engine_type: str, time_limit: float, multi_pv: int) -> list[dict]:
         with make_engine(engine_type) as engine:
             engine_moves = engine.analyze(uci, time_limit, multi_pv)
             return engine_moves
 
-    def submit_job(
-        self, uci: str, engine_type: str, time_limit: int, multi_pv: int
-    ) -> str:
+    def submit_job(self, uci: str, engine_type: str, time_limit: int, multi_pv: int) -> str:
         id = self.job_id(uci, multi_pv)
         if id in self._futures:
             print(f"Job for {uci} already submitted. Reusing job.")
             return id
         print(f"Job {uci} is submitted.")
-        self._futures[id] = self.executor.submit(
-            self._run_analysis, uci, engine_type, time_limit, multi_pv
-        )
+        self._futures[id] = self.executor.submit(self._run_analysis, uci, engine_type, time_limit, multi_pv)
 
         return id
 
@@ -113,12 +106,8 @@ class ChessAnalysisPool:
         result = future.result()
         return result
 
-    def submit_and_get(
-        self, uci: str, engine_type: str, time_limit: int, multi_pv: int
-    ) -> list[dict]:
-        id = self.submit_job(
-            uci, engine_type=engine_type, time_limit=time_limit, multi_pv=multi_pv
-        )
+    def submit_and_get(self, uci: str, engine_type: str, time_limit: int, multi_pv: int) -> list[dict]:
+        id = self.submit_job(uci, engine_type=engine_type, time_limit=time_limit, multi_pv=multi_pv)
         return self.get_result(id)
 
     def shutdown(self):

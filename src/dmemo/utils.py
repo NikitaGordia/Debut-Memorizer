@@ -1,8 +1,9 @@
-import chess
-import chess.pgn
 import io
 import random
 from typing import Tuple
+
+import chess
+import chess.pgn
 
 
 def pgn2game(pgn: str) -> chess.pgn.Game:
@@ -47,9 +48,7 @@ def sample_move(distribution: dict[str, int], threshold: float = 0.05) -> str | 
 
     dst_sum = sum(distribution.values())
     filtered_dst = {k: v for k, v in distribution.items() if v / dst_sum >= threshold}
-    move = random.choices(
-        list(filtered_dst.keys()), weights=list(filtered_dst.values()), k=1
-    )[0]
+    move = random.choices(list(filtered_dst.keys()), weights=list(filtered_dst.values()), k=1)[0]
     return move, distribution[move]
 
 

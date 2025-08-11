@@ -1,16 +1,21 @@
 import argparse
+from datetime import datetime
+from functools import partial
+import io
+from multiprocessing import Pool
+from multiprocessing import cpu_count
+import os
+from typing import Generator
+from typing import List
+from typing import Tuple
+
 import chess.pgn
 import tqdm
-import io
-import os
-from multiprocessing import Pool, cpu_count
-from typing import Generator, Tuple, List
-from functools import partial
-from datetime import datetime
 
-from dmemo.db.models import Game
 from dmemo.db.crud import add_games
-from utils import game2uci, game2pgn
+from dmemo.db.models import Game
+from dmemo.utils import game2pgn
+from dmemo.utils import game2uci
 
 DB_BATCH_SIZE = 1_000_000
 CHUNK_SIZE = 10_000_000
@@ -49,9 +54,7 @@ def process_game(game: chess.pgn.Game) -> Game:
     )
 
 
-def find_game_chunks(
-    file_path: str, chunk_size: int
-) -> Generator[Tuple[int, int], None, None]:
+def find_game_chunks(file_path: str, chunk_size: int) -> Generator[Tuple[int, int], None, None]:
     file_size = os.path.getsize(file_path)
     if file_size == 0:
         return
@@ -106,9 +109,7 @@ def import_games_parallel(path: str, num_workers: int, total: int = None):
     pbar = tqdm.tqdm(total=total, desc="⚙️ Processing Games", unit="games")
 
     with Pool(processes=num_workers) as pool:
-        for processed_games_list in pool.imap_unordered(
-            partial(process_chunk, path), chunk_generator
-        ):
+        for processed_games_list in pool.imap_unordered(partial(process_chunk, path), chunk_generator):
             if processed_games_list:
                 games_buffer.extend(processed_games_list)
                 games_processed_count += len(processed_games_list)

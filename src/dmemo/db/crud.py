@@ -1,4 +1,6 @@
-from sqlalchemy import func, desc
+from sqlalchemy import desc
+from sqlalchemy import func
+
 from dmemo.db.models import Game
 from dmemo.db.session import make_session
 
@@ -22,9 +24,7 @@ def get_next_move_distribution(opening_uci: str) -> dict[str, int]:
         num_opening_moves = len(opening_uci.split()) if opening_uci else 0
         next_move_index = num_opening_moves + 1
 
-        next_move_expr = func.split_part(Game.uci, " ", next_move_index).label(
-            "next_move"
-        )
+        next_move_expr = func.split_part(Game.uci, " ", next_move_index).label("next_move")
 
         query = session.query(next_move_expr, func.count(Game.id).label("move_count"))
 

@@ -10,3 +10,6 @@ run-prod:
 
 clean:
 	rm -rf __pycache__ .pytest_cache dist build *.egg-info
+
+format:
+	ruff check --fix src

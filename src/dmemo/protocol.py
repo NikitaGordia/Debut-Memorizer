@@ -1,17 +1,17 @@
-from typing import Literal
-from typing import Annotated
-from pydantic import BaseModel, Field
 import io
+from typing import Annotated
+from typing import Literal
+
 import chess.pgn
+from pydantic import BaseModel
+from pydantic import Field
 from pydantic import field_validator
 
 
 class MoveRequest(BaseModel):
     pgn: Annotated[
         str,
-        Field(
-            strict=True, description="PGN string representing the current game state"
-        ),
+        Field(strict=True, description="PGN string representing the current game state"),
     ]
     orientation: Annotated[
         Literal["white", "black"],
@@ -32,9 +32,7 @@ class MoveRequest(BaseModel):
     ]
     training_move: Annotated[
         int,
-        Field(
-            strict=True, ge=0, description="Current move number in the training session"
-        ),
+        Field(strict=True, ge=0, description="Current move number in the training session"),
     ]
 
     @field_validator("pgn")

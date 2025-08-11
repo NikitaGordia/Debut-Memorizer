@@ -1,9 +1,11 @@
 import argparse
-import diskcache as dc
-import tqdm
 from concurrent.futures import ThreadPoolExecutor
-from dotenv import load_dotenv
 import os
+
+import diskcache as dc
+from dotenv import load_dotenv
+import tqdm
+
 from dmemo.db import crud
 
 load_dotenv()
@@ -11,9 +13,7 @@ load_dotenv()
 
 class Explorer:
     def __init__(self, cache_path: str, num_workers: int = 2):
-        self.executor = ThreadPoolExecutor(
-            max_workers=num_workers, thread_name_prefix="ExplorerWorker"
-        )
+        self.executor = ThreadPoolExecutor(max_workers=num_workers, thread_name_prefix="ExplorerWorker")
         self.cache = dc.Cache(cache_path)
         self.futures = {}
 

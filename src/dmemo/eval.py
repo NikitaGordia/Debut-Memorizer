@@ -1,6 +1,8 @@
 from typing import Tuple
-from dmemo.utils import previous_move_and_uci, uci2board
+
 from dmemo.engine import ChessAnalysisPool
+from dmemo.utils import previous_move_and_uci
+from dmemo.utils import uci2board
 
 
 class Evaluator:
@@ -31,20 +33,12 @@ class Evaluator:
         # Best moves (hints)
         self.pool.submit_job(uci, self.engine_type, self.move_limit, self.n_hints)
         # Base score for the next move
-        self.pool.submit_job(
-            uci, self.engine_type, time_limit=self.move_limit, multi_pv=1
-        )
+        self.pool.submit_job(uci, self.engine_type, time_limit=self.move_limit, multi_pv=1)
 
     def submit_jobs(self):
-        best_moves_id = self.pool.submit_job(
-            self.prev_uci, self.engine_type, self.move_limit, self.n_hints
-        )
-        prev_id = self.pool.submit_job(
-            self.prev_uci, self.engine_type, time_limit=self.move_limit, multi_pv=1
-        )
-        curr_id = self.pool.submit_job(
-            self.uci, self.engine_type, time_limit=self.move_limit, multi_pv=1
-        )
+        best_moves_id = self.pool.submit_job(self.prev_uci, self.engine_type, self.move_limit, self.n_hints)
+        prev_id = self.pool.submit_job(self.prev_uci, self.engine_type, time_limit=self.move_limit, multi_pv=1)
+        curr_id = self.pool.submit_job(self.uci, self.engine_type, time_limit=self.move_limit, multi_pv=1)
         self.ids = (best_moves_id, prev_id, curr_id)
 
     def result(self) -> Tuple[float, list[tuple[str, float]]]:

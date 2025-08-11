@@ -1,14 +1,16 @@
+import concurrent.futures
+from dataclasses import dataclass
+import itertools
+import math
+import os
+from typing import Any
+from typing import Dict
+
 import chess
 import chess.engine
-import yaml
-import concurrent.futures
-from tqdm import tqdm
-import os
-import math
-import itertools
-from dataclasses import dataclass
-from typing import Dict, Any
 from dotenv import load_dotenv
+from tqdm import tqdm
+import yaml
 
 load_dotenv()
 
@@ -59,15 +61,11 @@ def play_game(white_player: Player, black_player: Player) -> float:
             else:
                 return 0.5
     except Exception as e:
-        print(
-            f"An error occurred during a game between {white_player.name} and {black_player.name}: {e}"
-        )
+        print(f"An error occurred during a game between {white_player.name} and {black_player.name}: {e}")
         return 0.5
 
 
-def update_elo(
-    player_a_elo: float, player_b_elo: float, score_a: float, k_factor: int
-) -> tuple[float, float]:
+def update_elo(player_a_elo: float, player_b_elo: float, score_a: float, k_factor: int) -> tuple[float, float]:
     expected_a = 1 / (1 + math.pow(10, (player_b_elo - player_a_elo) / 400))
     new_a_elo = player_a_elo + k_factor * (score_a - expected_a)
     new_b_elo = player_b_elo + k_factor * ((1.0 - score_a) - (1 - expected_a))
@@ -110,9 +108,7 @@ def main():
         )
 
     if len(players) < 2:
-        print(
-            "❌ Error: Not enough valid players to start a tournament (need at least 2). Check engine_path in config.yaml."
-        )
+        print("❌ Error: Not enough valid players to start a tournament (need at least 2). Check engine_path in config.yaml.")
         return
 
     player_names = list(players.keys())
@@ -138,20 +134,14 @@ def main():
         }
 
         results = []
-        print(
-            f"⚔️  Running {len(matchups)} games with up to {max_workers} parallel threads..."
-        )
-        for future in tqdm(
-            concurrent.futures.as_completed(future_to_match), total=len(matchups)
-        ):
+        print(f"⚔️  Running {len(matchups)} games with up to {max_workers} parallel threads...")
+        for future in tqdm(concurrent.futures.as_completed(future_to_match), total=len(matchups)):
             white_name, black_name = future_to_match[future]
             try:
                 white_score = future.result()
                 results.append((white_name, black_name, white_score))
             except Exception as e:
-                print(
-                    f"An error occurred fetching result for {white_name} vs {black_name}: {e}"
-                )
+                print(f"An error occurred fetching result for {white_name} vs {black_name}: {e}")
 
     # 5. Calculate Elo ratings
     print("\n✅ All games finished. Calculating Elo ratings...")
@@ -164,9 +154,7 @@ def main():
         p_white.games_played += 1
         p_black.games_played += 1
 
-        new_elo_white, new_elo_black = update_elo(
-            p_white.elo, p_black.elo, white_score, k_factor
-        )
+        new_elo_white, new_elo_black = update_elo(p_white.elo, p_black.elo, white_score, k_factor)
         p_white.elo = new_elo_white
         p_black.elo = new_elo_black
 
@@ -179,9 +167,7 @@ def main():
     for i, p in enumerate(sorted_players):
         rank = i + 1
         score_str = f"{p.score:.1f}/{p.games_played}"
-        print(
-            f"{rank:<5} {p.name:<20} {p.elo:<10.2f} {score_str:<15} {p.games_played:<5}"
-        )
+        print(f"{rank:<5} {p.name:<20} {p.elo:<10.2f} {score_str:<15} {p.games_played:<5}")
 
 
 if __name__ == "__main__":

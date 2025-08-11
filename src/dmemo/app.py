@@ -1,15 +1,19 @@
+import os
+
+import chess
+from dotenv import load_dotenv
 from flask import Flask
 from flask import render_template
-import os
-from dmemo.engine import ChessAnalysisPool
-from dmemo.utils import pgn2board, pgn2uci, sample_move
-from dotenv import load_dotenv
-import chess
 from flask_pydantic import validate
+
 from dmemo.db.session import init_db
-from dmemo.explorer import Explorer
+from dmemo.engine import ChessAnalysisPool
 from dmemo.eval import Evaluator
+from dmemo.explorer import Explorer
 from dmemo.protocol import MoveRequest
+from dmemo.utils import pgn2board
+from dmemo.utils import pgn2uci
+from dmemo.utils import sample_move
 
 load_dotenv()
 
@@ -42,9 +46,7 @@ def create_app():
     def finish_game() -> dict:
         return make_move_response(None, [], None)
 
-    def continue_game(
-        uci: str, engine_type: str, move_limit: int, training_move: int
-    ) -> dict:
+    def continue_game(uci: str, engine_type: str, move_limit: int, training_move: int) -> dict:
         fast_move = training_move <= 1
         evaluator = Evaluator(
             app.pool,
@@ -90,8 +92,6 @@ def create_app():
             print("It's player's turn, finishing game...")
             return finish_game()
         else:
-            return continue_game(
-                uci, body.engine_type, body.move_time, body.training_move
-            )
+            return continue_game(uci, body.engine_type, body.move_time, body.training_move)
 
     return app

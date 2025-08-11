@@ -18,9 +18,23 @@ dependencies = [
     "pydantic>=2.11.7",
     "python-chess>=1.999",
     "python-dotenv>=1.1.1",
+    "ruff>=0.12.8",
     "sqlalchemy>=2.0.42",
     "tqdm>=4.67.1",
 ]
 
 [tool.setuptools.packages.find]
 where = ["src"]
+
+[tool.ruff]
+line-length = 150
+src = ["src"]
+
+[tool.ruff.lint]
+extend-select = ["I"]
+
+
+[tool.ruff.lint.isort]
+known-first-party = ["src"]
+force-single-line = true
+force-sort-within-sections = true
