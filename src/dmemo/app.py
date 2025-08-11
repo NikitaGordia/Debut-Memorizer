@@ -1,14 +1,15 @@
 from flask import Flask
 from flask import render_template
-from flask import request
 import os
 from dmemo.engine import ChessAnalysisPool
 from dmemo.utils import pgn2board, pgn2uci, sample_move
 from dotenv import load_dotenv
 import chess
+from flask_pydantic import validate
 from dmemo.db.session import init_db
 from dmemo.explorer import Explorer
 from dmemo.eval import Evaluator
+from dmemo.protocol import MoveRequest
 
 load_dotenv()
 
@@ -20,6 +21,7 @@ def create_app():
         num_workers=6,
     )
     app.explorer = Explorer(os.environ.get("EXPLORER_CACHE_PATH"), num_workers=4)
+
     app.MIN_OCCURRENCES = 10
     app.SAMPLE_THRESHOLD = 0.05
     app.N_HINTS = 3
@@ -71,36 +73,25 @@ def create_app():
 
         return make_move_response(move, best_moves, diff)
 
-    # root(index) route
     @app.route("/")
     def root():
         return render_template("index.html")
 
-    # make move API
     @app.route("/make_move", methods=["POST"])
-    def make_move():
-        # extract FEN string from HTTP POST request body
-        pgn = request.form.get("pgn")
-        board = pgn2board(pgn)
-        uci = pgn2uci(pgn)
+    @validate()
+    def make_move(body: MoveRequest):
+        board = pgn2board(body.pgn)
+        uci = pgn2uci(body.pgn)
 
-        # extract move time value
-        move_time = request.form.get("move_time")
-        engine_type = request.form.get("engine_type", "stockfish")
-        training_move = request.form.get("training_move", type=int)
-
-        # if move time is available
-        move_limit = 0.1 if move_time == "instant" else int(move_time)
-
-        orientation = (
-            chess.WHITE if request.form.get("orientation") == "white" else chess.BLACK
-        )
+        orientation = chess.WHITE if body.orientation == "white" else chess.BLACK
         players_turn = orientation == board.turn
 
         if players_turn:
             print("It's player's turn, finishing game...")
             return finish_game()
         else:
-            return continue_game(uci, engine_type, move_limit, training_move)
+            return continue_game(
+                uci, body.engine_type, body.move_time, body.training_move
+            )
 
     return app

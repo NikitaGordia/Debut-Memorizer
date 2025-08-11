@@ -577,21 +577,27 @@
     trainingMove++;
 
     // Use training parameters if training is active, otherwise use current UI values
-    var moveTime = trainingActive ? trainingParams.moveTime : $('#move_time option:selected').val();
+    let moveTimeStr = trainingActive ? trainingParams.moveTime : $('#move_time option:selected').val();
+    let moveTimeFloat = (moveTimeStr === 'instant') ? 0.1 : parseFloat(moveTimeStr);
     var engineType = trainingActive ? trainingParams.engine : $('#engine option:selected').val();
     var orientation = trainingActive ? trainingParams.orientation : board.orientation();
 
     // Show progress overlay and start progress tracking
-    showProgress(moveTime);
+    showProgress(moveTimeFloat);
 
     // make HTTP POST request to make move API
-    currentMoveRequest = $.post('/make_move',{
-        'pgn': game.pgn(),
-        'move_time': moveTime,
-        'engine_type': engineType,
-        'orientation': orientation,
-        'training_move': trainingMove
-      }, function(data) {
+    currentMoveRequest = $.ajax({
+        type: 'POST',
+        url: '/make_move',
+        contentType: 'application/json',
+        data: JSON.stringify({
+            pgn: game.pgn(),
+            move_time: moveTimeFloat,
+            engine_type: engineType,
+            orientation: orientation,
+            training_move: trainingMove
+        })
+    }).done(function(data) {
         // Hide progress overlay
         hideProgress();
 
@@ -756,12 +762,7 @@
 
   // Progress tracking functions
   function showProgress(moveTime) {
-    // Calculate progress duration based on move time
-    if (moveTime === 'instant') {
-      progressDuration = 500; // 0.5 seconds for instant moves
-    } else {
-      progressDuration = parseInt(moveTime) * 1000; // Convert seconds to milliseconds
-    }
+    progressDuration = moveTime * 1000;
     progressDuration += 300;
 
     // Show progress indicator and disable board
