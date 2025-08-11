@@ -48,7 +48,8 @@ Debut-Memorizer creates an immersive chess training experience by:
 
 2. **Install dependencies**
    ```bash
-   pip install -e .
+   uv sync
+   uv pip install -e .
    ```
 
 3. **Set up environment variables**
@@ -82,13 +83,12 @@ Debut-Memorizer creates an immersive chess training experience by:
 
 7. **Ingest Lichess games**
    ```bash
-   cd src
-   python -m db.ingest --total=N /path/to/tolichess_db_standard_rated_YYYY-MM.pgn
+   python -m dmemo.db.ingest --total=N /path/to/tolichess_db_standard_rated_YYYY-MM.pgn
    ```
 
 8. **Cache move distributions with `explorer.py`**
    ```bash
-   python -m explorer --depth=7 --stop_threshold=0.05
+   python -m dmemo.explorer --depth=7 --stop_threshold=0.05
    ```
 
 ## 🎮 Usage
@@ -97,8 +97,7 @@ Debut-Memorizer creates an immersive chess training experience by:
 
 1. **Start the application**
    ```bash
-   cd src
-   python -m app
+   make run-dev
    ```
 
 2. **Open your browser**
@@ -135,15 +134,13 @@ Debut-Memorizer creates an immersive chess training experience by:
 ### Engine Arena
 Compare different engine configurations:
 ```bash
-cd src
-python -m arena
+python -m dmemo.arena
 ```
 
 ### Database Explorer
 Pre-cache more move distributions:
 ```bash
-cd src
-python explorer.py --depth 4 --stop-threshold 0.01
+python dmemo.explorer.py --depth 4 --stop-threshold 0.01
 ```
 
 ### Custom Engine Configuration
@@ -159,6 +156,7 @@ Debut-Memorizer/
 │   ├── explorer.py         # Lichess database explorer
 │   ├── eval.py             # Move evaluation logic
 │   ├── arena.py            # Engine comparison tool
+│   ├── protocol.py         # API request validation
 │   ├── db/                 # Database models and import
 │   ├── static/             # Web assets
 │   └── templates/          # HTML templates
