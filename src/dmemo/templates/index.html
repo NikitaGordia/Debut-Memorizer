@@ -271,6 +271,55 @@
         background-color: #f8d7da;
         border: 1px solid #f5c6cb;
       }
+
+      /* Completion animation styles */
+      #completion-animation {
+        position: fixed;
+        top: 50%;
+        left: 50%;
+        transform: translate(-50%, -50%);
+        z-index: 9999;
+        background-color: rgba(40, 167, 69, 0.95);
+        color: white;
+        padding: 20px 40px;
+        border-radius: 15px;
+        font-size: 1.5rem;
+        font-weight: bold;
+        text-align: center;
+        box-shadow: 0 4px 20px rgba(0, 0, 0, 0.3);
+        animation: completion-bounce 1.2s ease-out;
+        display: none;
+      }
+
+      @keyframes completion-bounce {
+        0% {
+          transform: translate(-50%, -50%) scale(0.3);
+          opacity: 0;
+        }
+        50% {
+          transform: translate(-50%, -50%) scale(1.1);
+          opacity: 1;
+        }
+        100% {
+          transform: translate(-50%, -50%) scale(1);
+          opacity: 1;
+        }
+      }
+
+      .completion-fade-out {
+        animation: fade-out 0.5s ease-out forwards !important;
+      }
+
+      @keyframes fade-out {
+        0% {
+          opacity: 1;
+          transform: translate(-50%, -50%) scale(1);
+        }
+        100% {
+          opacity: 0;
+          transform: translate(-50%, -50%) scale(0.8);
+        }
+      }
     </style>
 
   </head>
@@ -494,6 +543,10 @@
                       <div class="text-center">
                         <div class="control-label">Score</div>
                         <div id="summary-score" class="h4 text-success">0</div>
+                        <div id="score-comparison" class="small text-muted" style="display: none;">
+                          <div id="best-score-display"></div>
+                          <div id="score-improvement" class="font-weight-bold"></div>
+                        </div>
                       </div>
                     </div>
 
@@ -542,6 +595,11 @@
           </div>
         </div>
       </div>
+    </div>
+
+    <!-- Completion Animation Overlay -->
+    <div id="completion-animation">
+      ✅ Round Complete!
     </div>
   </body>
 </html>
@@ -669,7 +727,11 @@
           // Scenario 1: sample_move is None - restart training without penalty
           if (!data.sample_move) {
             console.log('No sample move available, restarting training round');
-            restartTrainingRound();
+            showCompletionAnimation();
+            // Delay restart to allow animation to show
+            setTimeout(function() {
+              restartTrainingRound();
+            }, 800);
             return;
           }
         }
@@ -1219,6 +1281,95 @@
       }
     } else {
       $('#saved-fens-section').hide();
+    }
+
+    // Handle score comparison and storage
+    handleScoreComparison();
+  }
+
+  // Completion animation function
+  function showCompletionAnimation() {
+    $('#completion-animation').show();
+
+    // Hide after 1.2 seconds with fade out
+    setTimeout(function() {
+      $('#completion-animation').addClass('completion-fade-out');
+
+      // Actually hide the element after fade out completes
+      setTimeout(function() {
+        $('#completion-animation').hide().removeClass('completion-fade-out');
+      }, 500);
+    }, 1200);
+  }
+
+  // Local storage functions for training scores
+  function getTrainingScoreKey(moveTime, engine, trainingLevel, startingFen) {
+    // Create a unique key for the training parameters
+    return 'training_score_' + moveTime + '_' + engine + '_' + trainingLevel + '_' + btoa(startingFen).replace(/[^a-zA-Z0-9]/g, '');
+  }
+
+  function getBestScore(moveTime, engine, trainingLevel, startingFen) {
+    var key = getTrainingScoreKey(moveTime, engine, trainingLevel, startingFen);
+    var stored = localStorage.getItem(key);
+    return stored ? parseInt(stored) : null;
+  }
+
+  function saveBestScore(score, moveTime, engine, trainingLevel, startingFen) {
+    var key = getTrainingScoreKey(moveTime, engine, trainingLevel, startingFen);
+    var currentBest = getBestScore(moveTime, engine, trainingLevel, startingFen);
+
+    if (currentBest === null || score > currentBest) {
+      localStorage.setItem(key, score.toString());
+      return true; // New best score
+    }
+    return false; // Not a new best score
+  }
+
+  function handleScoreComparison() {
+    if (!trainingParams || !trainingParams.startingPgn) {
+      return;
+    }
+
+    // Get starting FEN from the starting PGN
+    var tempGame = new Chess();
+    tempGame.load_pgn(trainingParams.startingPgn);
+    var startingFen = tempGame.fen();
+
+    var moveTime = trainingParams.moveTime;
+    var engine = trainingParams.engine;
+    var trainingLevel = trainingParams.level;
+
+    // Get the best score for these parameters
+    var bestScore = getBestScore(moveTime, engine, trainingLevel, startingFen);
+
+    // Save current score if it's a new best
+    var isNewBest = saveBestScore(accumulatedScore, moveTime, engine, trainingLevel, startingFen);
+
+    // Show comparison if there's a previous best score
+    if (bestScore !== null) {
+      $('#score-comparison').show();
+
+      if (isNewBest) {
+        $('#best-score-display').html('Previous best: ' + bestScore);
+        $('#score-improvement').html('<span class="text-success">🎉 New Best Score!</span>');
+        $('#score-improvement').removeClass('text-danger').addClass('text-success');
+      } else {
+        $('#best-score-display').html('Best score: ' + bestScore);
+        var difference = accumulatedScore - bestScore;
+        if (difference < 0) {
+          $('#score-improvement').html('<span class="text-danger">(' + difference + ' from best)</span>');
+          $('#score-improvement').removeClass('text-success').addClass('text-danger');
+        } else {
+          $('#score-improvement').html('<span class="text-warning">(tied with best)</span>');
+          $('#score-improvement').removeClass('text-success text-danger').addClass('text-warning');
+        }
+      }
+    } else {
+      // First time playing with these parameters
+      $('#score-comparison').show();
+      $('#best-score-display').html('First attempt with these settings');
+      $('#score-improvement').html('<span class="text-info">🌟 New Record Set!</span>');
+      $('#score-improvement').removeClass('text-danger text-success').addClass('text-info');
     }
   }
 
