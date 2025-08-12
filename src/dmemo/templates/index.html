@@ -406,10 +406,19 @@
                       </div>
                     </div>
 
-                    <!-- Surrender Button -->
-                    <button id="surrender" class="btn btn-danger start-training-btn">
-                      🏳️ Surrender
-                    </button>
+                    <!-- Action Buttons -->
+                    <div class="row">
+                      <div class="col-6">
+                        <button id="remember-fen" class="btn btn-info btn-block">
+                          💾 Save FEN
+                        </button>
+                      </div>
+                      <div class="col-6">
+                        <button id="surrender" class="btn btn-danger btn-block">
+                          🏳️ Surrender
+                        </button>
+                      </div>
+                    </div>
                   </div>
 
                   <!-- Hint Modal (shown when player makes wrong move) -->
@@ -462,10 +471,19 @@
                       </div>
                     </div>
 
-                    <!-- Continue Button -->
-                    <button id="continue-after-hint" class="btn btn-warning start-training-btn">
-                      ✅ Continue Training (-30s)
-                    </button>
+                    <!-- Action Buttons -->
+                    <div class="row">
+                      <div class="col-6">
+                        <button id="remember-fen-hint" class="btn btn-info btn-block">
+                          💾 Save FEN
+                        </button>
+                      </div>
+                      <div class="col-6">
+                        <button id="continue-after-hint" class="btn btn-warning btn-block">
+                          ✅ Continue (-30s)
+                        </button>
+                      </div>
+                    </div>
                   </div>
 
                   <!-- Training Summary Modal (shown when training ends) -->
@@ -492,6 +510,14 @@
                         <div>Engine: <span id="summary-engine-used" class="font-weight-bold"></span></div>
                         <div>Playing as: <span id="summary-orientation-used" class="font-weight-bold"></span></div>
                         <div>Level: <span id="summary-level-used" class="font-weight-bold"></span></div>
+                      </div>
+                    </div>
+
+                    <!-- Saved FENs Section -->
+                    <div id="saved-fens-section" class="mb-3" style="display: none;">
+                      <h6 class="text-center text-info mb-2">💾 Remembered Positions</h6>
+                      <div id="saved-fens-list" class="small">
+                        <!-- Saved FENs will be populated here -->
                       </div>
                     </div>
 
@@ -692,6 +718,7 @@
   var trainingMove = 0;
   var trainingStartTime = null;
   var trainingEndReason = null;
+  var savedFens = []; // Array to store remembered FENs during training
 
   // timer functions
   function startTimer() {
@@ -1168,6 +1195,31 @@
     // Format level display for summary
     var summaryLevelDisplay = getLevelDisplayName(trainingParams.level) || 'Unknown';
     $('#summary-level-used').text(summaryLevelDisplay);
+
+    // Populate saved FENs section
+    if (savedFens.length > 0) {
+      $('#saved-fens-section').show();
+      var fensList = $('#saved-fens-list');
+      fensList.empty();
+
+      for (var i = 0; i < savedFens.length; i++) {
+        var fenItem = $('<div class="mb-2 p-2" style="border: 1px solid #dee2e6; border-radius: 4px; background-color: #f8f9fa;"></div>');
+
+        var fenHeader = $('<div class="d-flex justify-content-between align-items-center mb-1"></div>');
+        fenHeader.append('<span class="font-weight-bold text-primary">Position ' + (i + 1) + ':</span>');
+
+        var copyBtn = $('<button class="btn btn-outline-primary btn-sm copy-saved-fen-btn" data-fen="' + savedFens[i] + '">📋 Copy</button>');
+        fenHeader.append(copyBtn);
+
+        var fenDisplay = $('<div class="text-monospace" style="font-size: 0.75rem; word-break: break-all;">' + savedFens[i] + '</div>');
+
+        fenItem.append(fenHeader);
+        fenItem.append(fenDisplay);
+        fensList.append(fenItem);
+      }
+    } else {
+      $('#saved-fens-section').hide();
+    }
   }
 
   // handle orientation toggle
@@ -1226,6 +1278,73 @@
           setTimeout(function() {
             $('#fen-copy-failed-notification').fadeOut();
           }, 5000);
+        }
+      );
+    }
+  });
+
+  // Function to remember current FEN
+  function rememberCurrentFen() {
+    if (!trainingActive) {
+      return;
+    }
+
+    var currentFen = game.fen();
+    if (currentFen && currentFen.trim() !== '') {
+      // Check if this FEN is already saved to avoid duplicates
+      if (savedFens.indexOf(currentFen) === -1) {
+        savedFens.push(currentFen);
+
+        // Show visual feedback
+        var button = $(this);
+        var originalText = button.html();
+        button.html('✅ Saved!');
+        button.prop('disabled', true);
+
+        // Reset button after 2 seconds
+        setTimeout(function() {
+          button.html(originalText);
+          button.prop('disabled', false);
+        }, 2000);
+      } else {
+        // FEN already saved - show different feedback
+        var button = $(this);
+        var originalText = button.html();
+        button.html('📝 Already saved');
+
+        // Reset button after 1 second
+        setTimeout(function() {
+          button.html(originalText);
+        }, 1000);
+      }
+    }
+  }
+
+  // handle remember FEN button clicks
+  $('#remember-fen').on('click', rememberCurrentFen);
+  $('#remember-fen-hint').on('click', rememberCurrentFen);
+
+  // handle copy saved FEN button clicks (using event delegation for dynamically created buttons)
+  $(document).on('click', '.copy-saved-fen-btn', function() {
+    var fenText = $(this).data('fen');
+    var button = $(this);
+    var originalText = button.html();
+
+    if (fenText && fenText.trim() !== '') {
+      copyToClipboard(fenText,
+        function() {
+          // Success callback
+          button.html('✅ Copied!');
+          setTimeout(function() {
+            button.html(originalText);
+          }, 2000);
+        },
+        function() {
+          // Failure callback
+          button.html('❌ Failed');
+          setTimeout(function() {
+            button.html(originalText);
+          }, 2000);
         }
       );
     }
@@ -1290,6 +1409,7 @@
       // Start training
       trainingActive = true;
       accumulatedScore = 0;
+      savedFens = []; // Reset saved FENs for new training session
       trainingStartTime = new Date();
       resetTimer();
 
